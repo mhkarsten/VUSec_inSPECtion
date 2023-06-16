@@ -1,0 +1,111 @@
+diff --git a/lib/LTO/LTOBackend.cpp b/lib/LTO/LTOBackend.cpp
+index 1c2ca253a..a8ff70514 100644
+--- a/lib/LTO/LTOBackend.cpp
++++ b/lib/LTO/LTOBackend.cpp
+@@ -22,6 +22,7 @@
+ #include "llvm/Bitcode/BitcodeWriter.h"
+ #include "llvm/IR/LLVMRemarkStreamer.h"
+ #include "llvm/IR/LegacyPassManager.h"
++#include "llvm/IR/LegacyPassNameParser.h"
+ #include "llvm/IR/PassManager.h"
+ #include "llvm/IR/Verifier.h"
+ #include "llvm/LTO/LTO.h"
+@@ -39,6 +40,7 @@
+ #include "llvm/Support/ThreadPool.h"
+ #include "llvm/Support/ToolOutputFile.h"
+ #include "llvm/Support/raw_ostream.h"
++#include "llvm/Support/PluginLoader.h"
+ #include "llvm/Target/TargetMachine.h"
+ #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
+ #include "llvm/Transforms/Scalar/LoopPassManager.h"
+@@ -57,6 +59,13 @@ enum class LTOBitcodeEmbedding {
+   EmbedPostMergePreOptimized = 2
+ };
+ 
++static cl::list<const PassInfo*, bool, PassNameParser>
++PassList(cl::desc("Optimizations available:"));
++
++static cl::opt<bool>
++DisableOpt("disable-opt", cl::init(false),
++  cl::desc("Do not run any optimization passes"));
++
+ static cl::opt<LTOBitcodeEmbedding> EmbedBitcode(
+     "lto-embed-bitcode", cl::init(LTOBitcodeEmbedding::DoNotEmbed),
+     cl::values(clEnumValN(LTOBitcodeEmbedding::DoNotEmbed, "none",
+@@ -232,6 +241,9 @@ static void runNewPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
+                            unsigned OptLevel, bool IsThinLTO,
+                            ModuleSummaryIndex *ExportSummary,
+                            const ModuleSummaryIndex *ImportSummary) {
++  if (DisableOpt)
++    Conf.OptLevel = 0;
++
+   std::optional<PGOOptions> PGOOpt;
+   if (!Conf.SampleProfile.empty())
+     PGOOpt = PGOOptions(Conf.SampleProfile, "", Conf.ProfileRemapping,
+@@ -327,6 +339,25 @@ static void runNewPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
+ 
+   if (!Conf.DisableVerify)
+     MPM.addPass(VerifierPass());
++  
++  for (const PassInfo *PassInf : PassList) {
++    if (!PassInf->getNormalCtor())
++      report_fatal_error("cannot create pass: " + PassInf->getPassName());
++    Pass *P = PassInf->getNormalCtor()();
++    MPM.addPass(P);
++    MPM.addPass(VerifierPass());
++  }
++
++  // Rerun LTO optimization passes after any custom passes
++  if (PassList.size() > 0) {
++    if (Conf.UseDefaultPipeline) {
++      MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
++    } else if (IsThinLTO) {
++      MPM.addPass(PB.buildThinLTODefaultPipeline(OL, ImportSummary));
++    } else {
++      MPM.addPass(PB.buildLTODefaultPipeline(OL, ExportSummary));
++    }
++  }
+ 
+   MPM.run(Mod, MAM);
+ }
+diff --git a/tools/gold/CMakeLists.txt b/tools/gold/CMakeLists.txt
+index 58b323805..9899c51cd 100644
+--- a/tools/gold/CMakeLists.txt
++++ b/tools/gold/CMakeLists.txt
+@@ -1,4 +1,6 @@
+-set(LLVM_EXPORTED_SYMBOL_FILE ${CMAKE_CURRENT_SOURCE_DIR}/gold.exports)
++# Enabling this will cause a lot of symbols to miss from LLVMgold.so which we
++# need for creating pass-plugins for LLVMgold.
++# set(LLVM_EXPORTED_SYMBOL_FILE ${CMAKE_CURRENT_SOURCE_DIR}/gold.exports)
+ 
+ if( LLVM_ENABLE_PIC AND LLVM_BINUTILS_INCDIR )
+   include_directories( ${LLVM_BINUTILS_INCDIR} )
+diff --git a/tools/gold/gold-plugin.cpp b/tools/gold/gold-plugin.cpp
+index 939dbaf06..62610b5db 100644
+--- a/tools/gold/gold-plugin.cpp
++++ b/tools/gold/gold-plugin.cpp
+@@ -33,6 +33,7 @@
+ #include "llvm/Support/TargetSelect.h"
+ #include "llvm/Support/Threading.h"
+ #include "llvm/Support/raw_ostream.h"
++#include "llvm/InitializePasses.h"
+ #include <list>
+ #include <map>
+ #include <plugin-api.h>
+@@ -339,6 +340,16 @@ ld_plugin_status onload(ld_plugin_tv *tv) {
+   InitializeAllAsmParsers();
+   InitializeAllAsmPrinters();
+ 
++  // Make opt passes available at LTO time to be used in combintation with
++  // custom passes.
++  PassRegistry &Registry = *PassRegistry::getPassRegistry();
++  initializeCore(Registry);
++  initializeIPO(Registry);
++  initializeScalarOpts(Registry);
++  initializeAnalysis(Registry);
++  initializeTransformUtils(Registry);
++  initializeInstCombine(Registry);
++  
+   // We're given a pointer to the first transfer vector. We read through them
+   // until we find one where tv_tag == LDPT_NULL. The REGISTER_* tagged values
+   // contain pointers to functions that we need to call to register our own

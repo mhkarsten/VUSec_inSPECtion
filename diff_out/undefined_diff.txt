@@ -1,0 +1,83 @@
+6,7c6,20
+< ; Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(none) uwtable
+< define hidden noundef i32 @main(i32 noundef %argc, ptr nocapture noundef readnone %argv) local_unnamed_addr #0 !dbg !12 {
+---
+> $_ZTSFiiPPcE = comdat any
+> 
+> $_ZTIFiiPPcE = comdat any
+> 
+> @_ZTVN10__cxxabiv120__function_type_infoE = external global ptr
+> @_ZTSFiiPPcE = linkonce_odr dso_local constant [8 x i8] c"FiiPPcE\00", comdat, align 1
+> @_ZTIFiiPPcE = linkonce_odr dso_local constant { ptr, ptr } { ptr getelementptr inbounds (ptr, ptr @_ZTVN10__cxxabiv120__function_type_infoE, i64 2), ptr @_ZTSFiiPPcE }, comdat, align 8
+> @__llvm_rtti_proxy = private unnamed_addr constant ptr @_ZTIFiiPPcE
+> @.src = private unnamed_addr constant [16 x i8] c"examples/ub.cpp\00", align 1
+> @anon.eb1658d8622e81d4acbc1ac451ed89c1.0 = private unnamed_addr constant { i16, i16, [6 x i8] } { i16 0, i16 11, [6 x i8] c"'int'\00" }
+> @anon.eb1658d8622e81d4acbc1ac451ed89c1.1 = private unnamed_addr global { { ptr, i32, i32 }, ptr } { { ptr, i32, i32 } { ptr @.src, i32 4, i32 5 }, ptr @anon.eb1658d8622e81d4acbc1ac451ed89c1.0 }
+> @llvm.compiler.used = appending global [1 x ptr] [ptr @__llvm_rtti_proxy], section "llvm.metadata"
+> 
+> ; Function Attrs: mustprogress norecurse nounwind uwtable
+> define hidden noundef i32 @main(i32 noundef %argc, ptr nocapture noundef readnone %argv) local_unnamed_addr #0 !dbg !12 !func_sanitize !23 {
+9,13c22,35
+<   call void @llvm.dbg.value(metadata i32 %argc, metadata !20, metadata !DIExpression()), !dbg !23
+<   call void @llvm.dbg.value(metadata ptr %argv, metadata !21, metadata !DIExpression()), !dbg !23
+<   call void @llvm.dbg.value(metadata i32 2147483647, metadata !22, metadata !DIExpression()), !dbg !23
+<   call void @llvm.dbg.value(metadata !DIArgList(i32 2147483647, i32 %argc), metadata !22, metadata !DIExpression(DW_OP_LLVM_arg, 0, DW_OP_LLVM_arg, 1, DW_OP_plus, DW_OP_stack_value)), !dbg !23
+<   ret i32 0, !dbg !24
+---
+>   call void @llvm.dbg.value(metadata i32 %argc, metadata !20, metadata !DIExpression()), !dbg !24
+>   call void @llvm.dbg.value(metadata ptr %argv, metadata !21, metadata !DIExpression()), !dbg !24
+>   call void @llvm.dbg.value(metadata i32 2147483647, metadata !22, metadata !DIExpression()), !dbg !24
+>   %0 = icmp slt i32 %argc, 1, !dbg !25
+>   br i1 %0, label %cont, label %handler.add_overflow, !dbg !25, !prof !26, !nosanitize !27
+> 
+> handler.add_overflow:                             ; preds = %entry
+>   %1 = zext i32 %argc to i64, !dbg !25, !nosanitize !27
+>   tail call void @__ubsan_handle_add_overflow(ptr nonnull @anon.eb1658d8622e81d4acbc1ac451ed89c1.1, i64 2147483647, i64 %1) #3, !dbg !25, !nosanitize !27
+>   br label %cont, !dbg !25, !nosanitize !27
+> 
+> cont:                                             ; preds = %handler.add_overflow, %entry
+>   call void @llvm.dbg.value(metadata i32 poison, metadata !22, metadata !DIExpression()), !dbg !24
+>   ret i32 0, !dbg !28
+15a38,40
+> ; Function Attrs: uwtable
+> declare void @__ubsan_handle_add_overflow(ptr, i64, i64) local_unnamed_addr #1
+> 
+17c42
+< declare void @llvm.dbg.value(metadata, metadata, metadata) #1
+---
+> declare void @llvm.dbg.value(metadata, metadata, metadata) #2
+19,20c44,47
+< attributes #0 = { mustprogress nofree norecurse nosync nounwind willreturn memory(none) uwtable "frame-pointer"="all" "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
+< attributes #1 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+---
+> attributes #0 = { mustprogress norecurse nounwind uwtable "frame-pointer"="all" "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
+> attributes #1 = { uwtable }
+> attributes #2 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+> attributes #3 = { nounwind }
+49,50c76,81
+< !23 = !DILocation(line: 0, scope: !12)
+< !24 = !DILocation(line: 5, column: 3, scope: !12)
+---
+> !23 = !{i32 846595819, ptr @__llvm_rtti_proxy}
+> !24 = !DILocation(line: 0, scope: !12)
+> !25 = !DILocation(line: 4, column: 5, scope: !12)
+> !26 = !{!"branch_weights", i32 1048575, i32 1}
+> !27 = !{}
+> !28 = !DILocation(line: 5, column: 3, scope: !12)
+53,55c84,95
+< ^1 = gv: (name: "main", summaries: (function: (module: ^0, flags: (linkage: external, visibility: hidden, notEligibleToImport: 1, live: 0, dsoLocal: 1, canAutoHide: 0), insts: 1, funcFlags: (readNone: 1, readOnly: 0, noRecurse: 1, returnDoesNotAlias: 0, noInline: 0, alwaysInline: 0, noUnwind: 1, mayThrow: 0, hasUnknownCall: 0, mustBeUnreachable: 0)))) ; guid = 15822663052811949562
+< ^2 = flags: 8
+< ^3 = blockcount: 1
+---
+> ^1 = gv: (name: "__ubsan_handle_add_overflow") ; guid = 2354870075103092769
+> ^2 = gv: (name: "anon.eb1658d8622e81d4acbc1ac451ed89c1.1", summaries: (variable: (module: ^0, flags: (linkage: private, visibility: default, notEligibleToImport: 1, live: 0, dsoLocal: 1, canAutoHide: 0), varFlags: (readonly: 1, writeonly: 1, constant: 0), refs: (^7, ^4)))) ; guid = 3102424527831119712
+> ^3 = gv: (name: "_ZTVN10__cxxabiv120__function_type_infoE") ; guid = 5685229085892473760
+> ^4 = gv: (name: ".src", summaries: (variable: (module: ^0, flags: (linkage: private, visibility: default, notEligibleToImport: 1, live: 0, dsoLocal: 1, canAutoHide: 0), varFlags: (readonly: 1, writeonly: 0, constant: 1)))) ; guid = 8765802492701117021
+> ^5 = gv: (name: "llvm.compiler.used", summaries: (variable: (module: ^0, flags: (linkage: appending, visibility: default, notEligibleToImport: 1, live: 1, dsoLocal: 0, canAutoHide: 0), varFlags: (readonly: 0, writeonly: 0, constant: 0), refs: (^8)))) ; guid = 9610627770985738006
+> ^6 = gv: (name: "_ZTIFiiPPcE", summaries: (variable: (module: ^0, flags: (linkage: linkonce_odr, visibility: default, notEligibleToImport: 1, live: 0, dsoLocal: 1, canAutoHide: 0), varFlags: (readonly: 0, writeonly: 0, constant: 1), refs: (^10, ^3)))) ; guid = 11704553499534024136
+> ^7 = gv: (name: "anon.eb1658d8622e81d4acbc1ac451ed89c1.0", summaries: (variable: (module: ^0, flags: (linkage: private, visibility: default, notEligibleToImport: 1, live: 0, dsoLocal: 1, canAutoHide: 0), varFlags: (readonly: 1, writeonly: 0, constant: 1)))) ; guid = 12210979074833380395
+> ^8 = gv: (name: "__llvm_rtti_proxy", summaries: (variable: (module: ^0, flags: (linkage: private, visibility: default, notEligibleToImport: 1, live: 0, dsoLocal: 1, canAutoHide: 0), varFlags: (readonly: 1, writeonly: 0, constant: 1), refs: (^6)))) ; guid = 14228985438976782202
+> ^9 = gv: (name: "main", summaries: (function: (module: ^0, flags: (linkage: external, visibility: hidden, notEligibleToImport: 1, live: 0, dsoLocal: 1, canAutoHide: 0), insts: 6, funcFlags: (readNone: 0, readOnly: 0, noRecurse: 1, returnDoesNotAlias: 0, noInline: 0, alwaysInline: 0, noUnwind: 1, mayThrow: 0, hasUnknownCall: 0, mustBeUnreachable: 0), calls: ((callee: ^1)), refs: (^2)))) ; guid = 15822663052811949562
+> ^10 = gv: (name: "_ZTSFiiPPcE", summaries: (variable: (module: ^0, flags: (linkage: linkonce_odr, visibility: default, notEligibleToImport: 1, live: 0, dsoLocal: 1, canAutoHide: 0), varFlags: (readonly: 0, writeonly: 0, constant: 1)))) ; guid = 16717424910329298079
+> ^11 = flags: 8
+> ^12 = blockcount: 3

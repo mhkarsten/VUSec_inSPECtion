@@ -121,7 +121,7 @@ class LLVMPasses(Package):
                self.path(ctx, 'obj'))
         yield from super().pkg_config_options(ctx)
 
-    def configure(self, ctx: Namespace, *, linktime=True, compiletime=True):
+    def configure(self, ctx: Namespace, *, linktime=True, compiletime=True, new_pm=False):
         """
         Set build/link flags in **ctx**. Should be called from the ``configure``
         method of an instance.
@@ -135,9 +135,14 @@ class LLVMPasses(Package):
         :param linktime: are the passes used at link time?
         :param compiletime: are the passes used at compile time?
         """
-        if compiletime:
-            libpath = self.path(ctx, 'install/libpasses-opt.so')
-            cflags = ['-Xclang', '-load', '-Xclang', libpath]
+        libpath = self.path(ctx, 'install/libpasses-opt.so')
+        if new_pm:
+            cflags = ["-fpass-plugin=" + libpath]
+            ctx.cflags += cflags
+            ctx.cxxflags += cflags
+        elif not new_pm and compiletime:
+            
+            cflags = ["-Xclang", "-load", "-Xclang", libpath]
             ctx.cflags += cflags
             ctx.cxxflags += cflags
 

@@ -3,7 +3,11 @@
 #include <sstream>
 #include <optional>
 #include <iostream>
+#include <fstream>
+#include <cstdlib>
 #include <llvm/Pass.h>
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Passes/PassPlugin.h"
 #include <llvm/IR/Constant.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Module.h>
@@ -22,54 +26,62 @@
 using namespace llvm;
 
 namespace {
-    class AllocTracker : public ModulePass {
+
+    struct AllocTracker : PassInfoMixin<AllocTracker> {
         public:
-            static char ID;
-            virtual bool runOnModule(Module &M) override;
+            PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
         private:
             Function *AllocRegisterFn;
     };
-}
 
-[[maybe_unused]] bool AllocTracker::runOnModule(Module &M) {
-    bool Changed = false;
-    
-    if (!(AllocRegisterFn = M.getFunction(NOINSTRUMENT_PREFIX "register_alloc"))) {
-        Type *VoidTy = Type::getVoidTy(M.getContext());
-        Type *IntTy = Type::Type::getInt32Ty(M.getContext());
-        FunctionType *FnTy = FunctionType::get(VoidTy, {IntTy}, false);
-        AllocTracker::AllocRegisterFn = Function::Create(FnTy, GlobalValue::ExternalLinkage,
-                                        NOINSTRUMENT_PREFIX "register_alloc", &M);
-    }
-    const auto name = Twine(NOINSTRUMENT_PREFIX "register_alloc");
-    for (Function &F : M) {
-        for (BasicBlock &BB : F) {
-            for (Instruction &I : BB) {
-                if (isa<AllocaInst>(I)) {
-                    std::optional<TypeSize> allocSize = cast<AllocaInst>(I).getAllocationSize(M.getDataLayout());;
+    PreservedAnalyses AllocTracker::run(Module &M, ModuleAnalysisManager &) {
+        errs() << "IF I CAN GET THIS TO WORK I WILL BE SO HAPPY\n";
+        if (!(AllocRegisterFn = M.getFunction(NOINSTRUMENT_PREFIX "register_alloc"))) {
+                Type *VoidTy = Type::getVoidTy(M.getContext());
+                Type *IntTy = Type::Type::getInt32Ty(M.getContext());
+                FunctionType *FnTy = FunctionType::get(VoidTy, {IntTy}, false);
+                AllocTracker::AllocRegisterFn = Function::Create(FnTy, GlobalValue::ExternalLinkage,
+                                                NOINSTRUMENT_PREFIX "register_alloc", &M);
+            }
 
-                    if (allocSize.has_value()) {
-                        auto FnCallee = M.getOrInsertFunction(NOINSTRUMENT_PREFIX "register_alloc",
-                                        Type::getVoidTy(M.getContext()), Type::getInt32Ty(M.getContext()));
-                        errs() << "FOUND AN ALLOCA";
-                        IRBuilder<> B(&I.getFunction()->getEntryBlock());
-                        B.SetInsertPoint(&I);
-                        B.CreateCall(AllocTracker::AllocRegisterFn->getFunctionType(), FnCallee.getCallee(), ArrayRef<Value*>(cast<Value>(ConstantInt::get(Type::getInt32Ty(M.getContext()), allocSize.value().getFixedValue()))), name);
-                        Changed = true;
+            const auto name = Twine(NOINSTRUMENT_PREFIX "register_alloc");
+            for (Function &F : M) {
+                for (BasicBlock &BB : F) {
+                    for (Instruction &I : BB) {
+                        if (isa<AllocaInst>(I)) {
+                            std::optional<TypeSize> allocSize = cast<AllocaInst>(I).getAllocationSize(M.getDataLayout());;
+
+                            if (allocSize.has_value()) {
+                                auto FnCallee = M.getOrInsertFunction(NOINSTRUMENT_PREFIX "register_alloc",
+                                                Type::getVoidTy(M.getContext()), Type::getInt32Ty(M.getContext()));
+                                errs() << "FOUND AN ALLOCA\n";
+                                IRBuilder<> B(&I.getFunction()->getEntryBlock());
+                                B.SetInsertPoint(&I);
+                                B.CreateCall(AllocTracker::AllocRegisterFn->getFunctionType(), FnCallee.getCallee(), ArrayRef<Value*>(cast<Value>(ConstantInt::get(Type::getInt32Ty(M.getContext()), allocSize.value().getFixedValue()))), name);
+                            }
+                        }
                     }
                 }
             }
-        }
+
+        return PreservedAnalyses::none();
     }
-
-
-    LLVM_DEBUG(dbgs() << "This is a message for mypass\n"); 
-    errs() << "AT LEAST SOME EVIDENCE OF EXECUTION HELLOOOOO";
-    return Changed;
 }
 
-char AllocTracker::ID = 0;
-static RegisterPass<AllocTracker> X("allocs-instrument",
-        "Instrument all stack allocations (alloca) with a call to "
-        "a function that tracks stack usage at runtime",
-        false, false);
+/* New PM Registration */
+llvm::PassPluginLibraryInfo getAllocTrackerPluginInfo() {
+    return {LLVM_PLUGIN_API_VERSION, "AllocTracker", LLVM_VERSION_STRING,
+            [](PassBuilder &PB) {
+            PB.registerOptimizerLastEPCallback (
+                [](llvm::ModulePassManager &PM, OptimizationLevel Level) {
+                    PM.addPass(AllocTracker());
+                });
+            }};
+}
+
+#ifndef LLVM_ALLOCTRACKER_LINK_INTO_TOOLS
+extern "C" LLVM_ATTRIBUTE_WEAK ::llvm::PassPluginLibraryInfo
+llvmGetPassPluginInfo() {
+    return getAllocTrackerPluginInfo();
+}
+#endif

@@ -23,7 +23,7 @@ CXXFLAGS       = -fPIC -Werror -Wall -std=c++0x -I. \
                  $(shell $(LLVM_CONFIG) --cxxflags | sed s/-I/-isystem/g) \
                  $(OLD_CXXFLAGS)
 ifeq ($(DEBUG),true)
-    CXXFLAGS += -O0 -ggdb
+    CXXFLAGS += -O1 -ggdb
 else
     CXXFLAGS += -O2 -g
 endif

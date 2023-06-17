@@ -1,4 +1,4 @@
-.PHONY: clean defence_examples run_alloc_test dirs
+.PHONY: clean defence_examples run_alloc_test dirs clean_stacktrack
 
 CC=build/packages/llvm-16.0.1/install/bin/clang
 override CFLAGS+=-O0 -g -fno-omit-frame-pointer -Wall
@@ -9,6 +9,11 @@ ODIR=bin
 LIBDIR=lib
 DIFFDIR=diff_out
 IRDIR=ir_out
+
+clean_stacktrack:
+	rm -rf build/packages/libstacktrack-runtime
+	rm -rf build/targets/hello-world
+	rm -rf build/packages/llvm-passes-stacktrack
 
 clean:
 	-rm -f $(ODIR)/*.o

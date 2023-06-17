@@ -5,6 +5,10 @@
 *.swp
 
 /build
+.vscode
+/bin
+/lib
+/results
 
 # Prerequisites
 *.d

@@ -24,12 +24,13 @@ class HelloWorld(inf.Target):
 
     def build(self, ctx, instance):
         os.chdir(os.path.join(ctx.paths.root, self.name))
+
         run(ctx, [
             'make', '--always-make',
             'OBJDIR=' + self.path(ctx, instance.name),
             'CC=' + ctx.cxx,
             'CFLAGS=' + qjoin(ctx.cflags),
-            'LDFLAGS=' + qjoin(ctx.ldflags)
+            'LDFLAGS=' + qjoin(ctx.ldflags),
         ])
 
     def link(self, ctx, instance):
@@ -47,7 +48,7 @@ class LibStackTrack(inf.Instance):
 
     def __init__(self):
         passdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'llvm-passes')
-        self.passes = LLVMPasses(llvm, passdir, 'inSPECtion', use_builtins=False, gold_passes=False)
+        self.passes = LLVMPasses(llvm, passdir, 'stacktrack', use_builtins=False, gold_passes=False, debug=True)
         self.runtime = LibStackTrackRuntime()
 
     def dependencies(self):
@@ -58,9 +59,9 @@ class LibStackTrack(inf.Instance):
     def configure(self, ctx):
         # Set the build environment (CC, CFLAGS, etc.) for the target program
         llvm.configure(ctx)
-        self.passes.configure(ctx, linktime=False)
+        self.passes.configure(ctx, linktime=False, new_pm=True)
         self.runtime.configure(ctx)
-        # LLVM.add_plugin_flags(ctx, '-track-stack')
+        # LLVM.add_plugin_flags(ctx, '-stacktrack', gold_passes=False)
 
     def prepare_run(self, ctx):
         # Just before running the target, set LD_LIBRARY_PATH so that it can
@@ -80,6 +81,10 @@ class LibStackTrackRuntime(inf.Package):
 
     def build(self, ctx):
         os.chdir(os.path.join(ctx.paths.root, 'runtime'))
+
+        ctx.cflags += ["-mllvm", "-debug-only=stacktrack"]
+        ctx.cxxflags += ["-mllvm", "-debug-only=stacktrack"]
+
         run(ctx, [
             'make', '-j%d' % ctx.jobs,
             'OBJDIR=' + self.path(ctx),

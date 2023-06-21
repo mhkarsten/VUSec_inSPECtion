@@ -34,8 +34,8 @@ struct allocation_t {
 static allocation_t allocs[MAX_ALLOCS] = {0};
 
 void write_to_file(void) {
-    fprintf(stderr, "Writing tracked heap allocations to file\n");
-    
+    fprintf(stdout, "Writing tracked heap allocations to file\n");
+
     FILE *out = fopen(OUT_NAME, "w+");
 
     for (int i = 0; i < MAX_ALLOCS; i++) {

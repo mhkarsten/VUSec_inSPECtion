@@ -38,31 +38,32 @@ namespace {
         errs() << "IF I CAN GET THIS TO WORK I WILL BE SO HAPPY\n";
         if (!(AllocRegisterFn = M.getFunction(NOINSTRUMENT_PREFIX "register_alloc"))) {
                 Type *VoidTy = Type::getVoidTy(M.getContext());
-                Type *IntTy = Type::Type::getInt32Ty(M.getContext());
-                FunctionType *FnTy = FunctionType::get(VoidTy, {IntTy}, false);
+                Type *IntTy = Type::getInt32Ty(M.getContext());
+                FunctionType *FnTy = FunctionType::get(VoidTy, {IntTy, IntTy}, false);
                 AllocTracker::AllocRegisterFn = Function::Create(FnTy, GlobalValue::ExternalLinkage,
                                                 NOINSTRUMENT_PREFIX "register_alloc", &M);
-            }
+        }
+        
+        for (Function &F : M) {
+            for (BasicBlock &BB : F) {
+                for (Instruction &I : BB) {
+                    if (isa<AllocaInst>(I)) {
+                        std::optional<TypeSize> allocSize = cast<AllocaInst>(I).getAllocationSize(M.getDataLayout());;
 
-            const auto name = Twine(NOINSTRUMENT_PREFIX "register_alloc");
-            for (Function &F : M) {
-                for (BasicBlock &BB : F) {
-                    for (Instruction &I : BB) {
-                        if (isa<AllocaInst>(I)) {
-                            std::optional<TypeSize> allocSize = cast<AllocaInst>(I).getAllocationSize(M.getDataLayout());;
-
-                            if (allocSize.has_value()) {
-                                auto FnCallee = M.getOrInsertFunction(NOINSTRUMENT_PREFIX "register_alloc",
-                                                Type::getVoidTy(M.getContext()), Type::getInt32Ty(M.getContext()));
-                                errs() << "FOUND AN ALLOCA\n";
-                                IRBuilder<> B(&I.getFunction()->getEntryBlock());
-                                B.SetInsertPoint(&I);
-                                B.CreateCall(AllocTracker::AllocRegisterFn->getFunctionType(), FnCallee.getCallee(), ArrayRef<Value*>(cast<Value>(ConstantInt::get(Type::getInt32Ty(M.getContext()), allocSize.value().getFixedValue()))), name);
-                            }
+                        if (allocSize.has_value()) {
+                            auto FnCallee = M.getOrInsertFunction(NOINSTRUMENT_PREFIX "register_alloc",
+                                            Type::getVoidTy(M.getContext()), Type::getInt32Ty(M.getContext()));
+                            errs() << "FOUND AN ALLOCA\n";
+                            IRBuilder<> B(&I.getFunction()->getEntryBlock());
+                            B.SetInsertPoint(&I);
+                            Value *size = cast<Value>(ConstantInt::get(Type::getInt32Ty(M.getContext()), allocSize.value().getFixedValue()));
+                            Value *type = cast<Value>(ConstantInt::get(Type::getInt32Ty(M.getContext()), static_cast<int>(cast<AllocaInst>(I).getAllocatedType()->getTypeID())));
+                            B.CreateCall(AllocTracker::AllocRegisterFn->getFunctionType(), FnCallee.getCallee(), {size, type});
                         }
                     }
                 }
             }
+        }
 
         return PreservedAnalyses::none();
     }

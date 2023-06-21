@@ -12,6 +12,7 @@ IRDIR=ir_out
 
 clean_stacktrack:
 	rm -rf build/packages/libstacktrack-runtime
+	rm -rf build/packages/libmallocwrapper-runtime
 	rm -rf build/targets/hello-world
 	rm -rf build/packages/llvm-passes-stacktrack
 

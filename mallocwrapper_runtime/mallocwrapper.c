@@ -33,7 +33,8 @@ struct allocation_t {
 
 static allocation_t allocs[MAX_ALLOCS] = {0};
 
-void write_to_file(void) {
+__attribute__((destructor))
+static void write_to_file(void) {
     fprintf(stdout, "Writing tracked heap allocations to file\n");
 
     FILE *out = fopen(OUT_NAME, "w+");
@@ -47,13 +48,6 @@ void write_to_file(void) {
     }
 
     fclose(out);
-}
-
-void register_exit() {
-    if (!exit_registered) {
-        atexit(write_to_file);
-        exit_registered = true;
-    }
 }
 
 void register_alloc(size_t size, enum alloc_type type) {
@@ -74,8 +68,6 @@ void register_alloc(size_t size, enum alloc_type type) {
 }
 
 void *malloc(size_t size) {
-    register_exit();
-
     register_alloc(size, MALLOC);
 
     extern void *__libc_malloc(size_t);
@@ -84,8 +76,6 @@ void *malloc(size_t size) {
 
 
 void *calloc(size_t nmemb, size_t size) {
-    register_exit();
-
     register_alloc(size * nmemb, CALLOC);
 
     extern void *__libc_calloc(size_t, size_t);
@@ -93,8 +83,6 @@ void *calloc(size_t nmemb, size_t size) {
 }
 
 void *realloc(void *ptr, size_t size) {
-    register_exit();
-
     register_alloc(size, REALLOC);
 
     extern void *__libc_realloc(void *, size_t);
@@ -102,8 +90,6 @@ void *realloc(void *ptr, size_t size) {
 }
 
 void free(void *ptr) {
-    register_exit();
-
     register_alloc(0, FREE);
 
     extern void __libc_free(void *);

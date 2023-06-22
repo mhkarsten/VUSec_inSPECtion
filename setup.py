@@ -20,7 +20,7 @@ class HelloWorld(inf.Target):
         pass
 
     def build(self, ctx, instance):
-        os.chdir(os.path.join(ctx.paths.root, self.name))
+        os.chdir(os.path.join(ctx.paths.root, "hello-world"))
 
         run(ctx, [
             'make', '--always-make',
@@ -38,28 +38,26 @@ class HelloWorld(inf.Target):
 
     def run(self, ctx, instance):
         os.chdir(self.path(ctx, instance.name))
-        run(ctx, './hello', teeout=True, allow_error=True)
+        run(ctx, ctx.target_run_wrapper + ' ./hello', teeout=True, allow_error=True, shell=True)
+
 
 class PerfTrack(inf.Instance):
     def __init__(self, sanitizer_instance):
-        self.san_instance = sanitizer_instance
-        self.name = 'perf-' + self.san_instance.name
-        self.perf_stats = ['instructions', 'cache-references', 'cache-misses', 'branches', 'branch-misses', 'faults', 'minor-faults', 'major-faults']
 
-    def dependencies(self):
-        yield self.san_instance.llvm
+        self.san_instance = sanitizer_instance
+        self.name = 'perftrack-' + sanitizer_instance.name
+        self.perf_stats = ['instructions', 'cache-references', 'cache-misses', 'branches', 'branch-misses', 'faults', 'minor-faults', 'major-faults']
 
     def perf_command(self):
         stats = ','.join(self.perf_stats)
-        return f'3> perf.out perf stat -e {stats} --log-fd 3'
+        return f'3>perf.out perf stat -e {stats} --log-fd 3'
 
     def configure(self, ctx):
         # Set the build environment (CC, CFLAGS, etc.) for the target program
         self.san_instance.configure(ctx)
-        ctx.target_run_wrapper = self.perf_command()
 
     def prepare_run(self, ctx):
-        pass
+        ctx.target_run_wrapper = self.perf_command()
 
 class LibMallocWrapper(inf.Instance):
     def __init__(self, sanitizer_instance):
@@ -73,15 +71,11 @@ class LibMallocWrapper(inf.Instance):
 
     def configure(self, ctx):
         # Set the build environment (CC, CFLAGS, etc.) for the target program
-        libpath = self.runtime.path(ctx)
         self.san_instance.configure(ctx)
         self.runtime.configure(ctx)
-        ctx.target_run_wrapper = f'LD_PRELOAD="{libpath}/libmallocwrap.so"'
 
     def prepare_run(self, ctx):
         libpath = self.runtime.path(ctx)
-
-        ctx.target_run_wrapper = f'LD_PRELOAD="{libpath}/libmallocwrap.so"'
 
         prevlibpath = os.getenv('LD_PRELOAD', '').split(':')
         ctx.runenv.setdefault('LD_PRELOAD', prevlibpath).insert(0, f'{libpath}/libmallocwrap.so')
@@ -176,14 +170,10 @@ class LibMallocwrapperRuntime(inf.Package):
         return self.is_built(ctx)
 
     def configure(self, ctx):
-        # ctx.ldflags += ['-L' + self.path(ctx), '-lmallocwrap']
         pass
-
 
 if __name__ == "__main__":
     setup = inf.Setup(__file__)
-
-    setup.ctx.target_run_wrapper = 'LD_PRELOAD="/home/max/University/VU_Amsterdam/Year_3/Thesis/VUSec_inSPECtion/build/packages/libmallocwrapper-runtime/libmallocwrap.so"'
 
     # Basic Instances with no sanitizers
     setup.add_instance(inf.instances.Clang(llvm))

@@ -2,6 +2,8 @@ from .clang import Clang
 from ..packages import LLVM
 from ..util import param_attrs
 
+# pylint: disable=E1101
+
 class UbSan(Clang):
     """
     Undefined Behavior Sanitizer instance. Added ``-fsanitize=[checks]`` plus any
@@ -27,8 +29,11 @@ class UbSan(Clang):
     """
     @param_attrs
     def __init__(self, llvm: LLVM, *, san_checks=None, no_cheks=None, trap_checks=None, no_recover_checks=None,
-                 strip_path=None, minimal_rt=False, rt_suppression=False, lto=False, optlevel=2):
+                 strip_path=None, minimal_rt=False, rt_suppression=False, default_checks=True, lto=False, optlevel=2):
         super().__init__(llvm, lto=lto, optlevel=optlevel)
+
+        if default_checks:
+            self.san_checks = ["bounds", "vla-bound", "pointer-overflow"]
 
         # Ensure all checks in trap and recover get added to fsanitize so that the sanitizer gets activated
         other_checks = []
@@ -45,8 +50,10 @@ class UbSan(Clang):
     @property
     def name(self):
         name = "ubsan"
-
-        if self.san_checks:
+        
+        if self.default_checks:
+            name += "-default"
+        if not self.default_checks and self.san_checks:
             name += "-" + "-".join(self.san_checks)
 
         if self.strip_path:

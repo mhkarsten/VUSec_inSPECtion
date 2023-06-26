@@ -2,9 +2,9 @@
 OBJDIR         ?= obj
 LLVM_VERSION   ?= 16.0.1
 
-PKG_CONFIG     := python ../setup.py pkg-config
+PKG_CONFIG     := python ../../setup.py pkg-config
 
-CC       := ../build/packages/llvm-16.0.1/install/bin/clang
+CC       := ../../build/packages/llvm-16.0.1/install/bin/clang
 CFLAGS 	 := -O2 -fpic -Wall -Wextra -march=native -fno-builtin
 LIB      := libmallocwrap.so
 OBJS     := mallocwrapper.o

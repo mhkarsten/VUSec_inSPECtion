@@ -46,24 +46,34 @@ class PerfTrack(inf.Instance):
 
         self.san_instance = sanitizer_instance
         self.name = 'perftrack-' + sanitizer_instance.name
-        self.perf_stats = ['instructions', 'cache-references', 'cache-misses', 'branches', 'branch-misses', 'faults', 'minor-faults', 'major-faults']
+        self.perf_stats = ['instructions', 'cache-references', 'cache-misses', 'branches', 
+                           'branch-misses', 'faults', 'minor-faults', 'major-faults',
+                           'dTLB-load-misses', 'dTLB-loads', 'dTLB-store-misses', 'dTLB-stores',
+                           'L1-dcache-load-misses', 'L1-dcache-loads', 'L1-dcache-stores', 'L1-icache-load-misses',
+                           'iTLB-load-misses', "iTLB-loads"]
 
-    def perf_command(self):
+    def perf_command(self, ctx):
+        result_dir = os.path.join(ctx.paths.root, "results", self.name)
         stats = ','.join(self.perf_stats)
-        return f'3>perf.out perf stat -e {stats} --log-fd 3'
+
+        return  f"""3>$benchmark.txt.\$\$ perf stat -e {stats} --log-fd 3 $command; \
+                mkdir -p {result_dir}/$lognum/$iter; \
+                mv $benchmark.txt.\$\$ {result_dir}/$lognum/$iter"""
 
     def configure(self, ctx):
         # Set the build environment (CC, CFLAGS, etc.) for the target program
+        ctx.target_specrun_wrapper = self.perf_command(ctx)
         self.san_instance.configure(ctx)
 
     def prepare_run(self, ctx):
-        ctx.target_run_wrapper = self.perf_command()
+        self.san_instance.prepare_run(ctx)
 
-class LibMallocWrapper(inf.Instance):
+class LibMallocTrack(inf.Instance):
     def __init__(self, sanitizer_instance):
         self.san_instance = sanitizer_instance
-        self.name = 'libmallocwrapper-' + self.san_instance.name
         self.runtime = LibMallocwrapperRuntime()
+        self.name = 'libmalloctrack-' + self.san_instance.name
+        self.so_name = "libmallocwrap.so"
 
     def dependencies(self):
         yield self.san_instance.llvm
@@ -71,14 +81,22 @@ class LibMallocWrapper(inf.Instance):
 
     def configure(self, ctx):
         # Set the build environment (CC, CFLAGS, etc.) for the target program
+        result_dir = os.path.join(ctx.paths.root, "results", self.name)
+        libpath = self.runtime.path(ctx)
+
+        ctx.target_pre_bench = f"mkdir -p {result_dir}/$lognum/$iter"
+        ctx.target_run_wrapper = f"""RESULT_OUT_FILE={result_dir}/$lognum/$iter/$benchmark.txt.\$\$ \
+                                 LD_PRELOAD={libpath}/{self.so_name} $command"""
+
         self.san_instance.configure(ctx)
         self.runtime.configure(ctx)
 
     def prepare_run(self, ctx):
+        self.san_instance.prepare_run(ctx);
         libpath = self.runtime.path(ctx)
 
         prevlibpath = os.getenv('LD_PRELOAD', '').split(':')
-        ctx.runenv.setdefault('LD_PRELOAD', prevlibpath).insert(0, f'{libpath}/libmallocwrap.so')
+        ctx.runenv.setdefault('LD_PRELOAD', prevlibpath).insert(0, f'{libpath}/{self.so_name}')
 
 
 class LibStackTrack(inf.Instance):
@@ -88,16 +106,27 @@ class LibStackTrack(inf.Instance):
         self.passes = LLVMPasses(self.san_instance.llvm, passdir, 'stacktrack', use_builtins=False, gold_passes=False, debug=True)
         self.runtime = LibStackTrackRuntime()
         self.name = 'libstacktrack-' + self.san_instance.name
+        self.so_name = "libstacktrack.so"
 
     def dependencies(self):
         yield self.san_instance.llvm
         yield self.passes
         yield self.runtime
 
+    # Set the build environment (CC, CFLAGS, etc.) for the target program
     def configure(self, ctx):
-        # Set the build environment (CC, CFLAGS, etc.) for the target program
+        result_dir = os.path.join(ctx.paths.root, "results", self.name)
+        libpath = self.runtime.path(ctx)
+
+        # Set some context values for result collection for perf
+        ctx.target_pre_bench = f"mkdir -p {result_dir}/$lognum/$iter"
+
+        ctx.target_run_wrapper = f"""RESULT_OUT_FILE={result_dir}/$lognum/$iter/$benchmark.txt.\$\$ \
+                                  LD_PRELOAD={libpath}/libstacktrack.so $command"""
+
+        # Configure all used classes
         self.san_instance.configure(ctx)
-        self.passes.configure(ctx, linktime=False, new_pm=True)
+        self.passes.configure(ctx, linktime=False, compiletime=False, new_pm=True)
         self.runtime.configure(ctx)
 
     def prepare_run(self, ctx):
@@ -107,6 +136,7 @@ class LibStackTrack(inf.Instance):
         libpath = self.runtime.path(ctx)
         ctx.runenv.setdefault('LD_LIBRARY_PATH', prevlibpath).insert(0, libpath)
 
+        self.san_instance.prepare_run(ctx)
 
 # Custom package for our runtime library in the runtime/ directory
 class LibStackTrackRuntime(inf.Package):
@@ -117,7 +147,7 @@ class LibStackTrackRuntime(inf.Package):
         pass
 
     def build(self, ctx):
-        os.chdir(os.path.join(ctx.paths.root, 'registeralloc_runtime'))
+        os.chdir(os.path.join(ctx.paths.root, 'runtime', 'registeralloc'))
         
         run(ctx, [
             'make', '-j%d' % ctx.jobs,
@@ -143,13 +173,13 @@ class LibStackTrackRuntime(inf.Package):
 # Custom package for our runtime library in the runtime/ directory
 class LibMallocwrapperRuntime(inf.Package):
     def ident(self):
-        return 'libmallocwrapper-runtime'
+        return 'libmalloctrack-runtime'
 
     def fetch(self, ctx):
         pass
 
     def build(self, ctx):
-        os.chdir(os.path.join(ctx.paths.root, 'mallocwrapper_runtime'))
+        os.chdir(os.path.join(ctx.paths.root, 'runtime', 'mallocwrapper'))
 
         run(ctx, [
             'make', '-j%d' % ctx.jobs,
@@ -178,6 +208,9 @@ if __name__ == "__main__":
     # Basic Instances with no sanitizers
     setup.add_instance(inf.instances.Clang(llvm))
     setup.add_instance(inf.instances.Clang(llvm, lto=True)) # This is needed for many defenses
+    setup.add_instance(PerfTrack(inf.instances.Clang(llvm, lto=True)))
+    setup.add_instance(LibStackTrack(inf.instances.Clang(llvm, lto=True)))
+    setup.add_instance(LibMallocTrack(inf.instances.Clang(llvm, lto=True)))
 
     # Sanitizer Instances with no other tooling
     setup.add_instance(inf.instances.ASan(llvm))
@@ -201,11 +234,11 @@ if __name__ == "__main__":
     setup.add_instance(PerfTrack(inf.instances.CFISan(llvm)))
 
     # Sanitizer instances with Mallocwrapper enabled
-    setup.add_instance(LibMallocWrapper(inf.instances.ASan(llvm)))
-    setup.add_instance(LibMallocWrapper(inf.instances.MSan(llvm)))
-    setup.add_instance(LibMallocWrapper(inf.instances.UbSan(llvm)))
-    setup.add_instance(LibMallocWrapper(inf.instances.SafeSan(llvm)))
-    setup.add_instance(LibMallocWrapper(inf.instances.CFISan(llvm)))
+    setup.add_instance(LibMallocTrack(inf.instances.ASan(llvm)))
+    setup.add_instance(LibMallocTrack(inf.instances.MSan(llvm)))
+    setup.add_instance(LibMallocTrack(inf.instances.UbSan(llvm)))
+    setup.add_instance(LibMallocTrack(inf.instances.SafeSan(llvm)))
+    setup.add_instance(LibMallocTrack(inf.instances.CFISan(llvm)))
 
 
     # Dummy target for testing
@@ -214,13 +247,13 @@ if __name__ == "__main__":
     setup.add_target(inf.targets.SPEC2006(
         source=os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'spec2006.iso'),
         source_type='isofile',
-        patches=['dealII-stddef', 'omnetpp-invalid-ptrcheck', 'gcc-init-ptr', 'libcxx', 'asan']
+        patches=['dealII-stddef', 'omnetpp-invalid-ptrcheck', 'gcc-init-ptr', 'libcxx', 'asan', 'msan']
     ))
     # Spec2017 target
     setup.add_target(inf.targets.SPEC2017(
         source=os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'spec2017.iso'),
         source_type='isofile',
-        patches=['asan']
+        patches=['asan', 'msan']
     ))
 
     setup.main()

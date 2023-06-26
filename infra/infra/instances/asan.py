@@ -2,6 +2,7 @@ from .clang import Clang
 from ..packages import LLVM
 from ..util import param_attrs
 
+# pylint: disable=E1101
 
 class ASan(Clang):
     """

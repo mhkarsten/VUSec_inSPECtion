@@ -1,12 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <dlfcn.h>
-#include <stdbool.h>
+#include <string.h>
 
-#define MAX_ALLOCS 1000
-#define OUT_NAME "heap_allocations.out"
-
-static bool exit_registered = false;
+#define MAX_ALLOCS 10000
+#define DEFAULT_OUTFILE "heap_allocations.txt"
 
 typedef struct allocation_t allocation_t;
 
@@ -18,7 +16,7 @@ enum alloc_type {
     FREE, 
 };
 
-const char *const type_names[] = {
+static const char *const type_names[] = {
     [CALLOC]    = "Calloc",
     [MALLOC]    = "Malloc",
     [REALLOC]   = "Realloc",
@@ -35,9 +33,14 @@ static allocation_t allocs[MAX_ALLOCS] = {0};
 
 __attribute__((destructor))
 static void write_to_file(void) {
-    fprintf(stdout, "Writing tracked heap allocations to file\n");
+    char *out_file = getenv("RESULT_OUT_FILE");
 
-    FILE *out = fopen(OUT_NAME, "w+");
+    if (out_file == NULL)
+        return;
+        //out_file = strcpy((char *) malloc(strlen(DEFAULT_OUTFILE)), DEFAULT_OUTFILE);
+
+    fprintf(stderr, "Writing tracked heap allocations to file %s\n", out_file);
+    FILE *out = fopen(out_file, "w+");
 
     for (int i = 0; i < MAX_ALLOCS; i++) {
         allocation_t alloc = allocs[i];
@@ -48,9 +51,12 @@ static void write_to_file(void) {
     }
 
     fclose(out);
+
+    if (strcmp(out_file, DEFAULT_OUTFILE) == 0)
+        free(out_file);
 }
 
-void register_alloc(size_t size, enum alloc_type type) {
+static void register_alloc(size_t size, enum alloc_type type) {
     int i = 0;
 
     while(  allocs[i].type != EMPTY &&

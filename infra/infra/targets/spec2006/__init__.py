@@ -433,7 +433,7 @@ class SPEC2006(Target):
         config_name = 'infra-' + instance.name
         config_path = self._install_path(ctx, 'config/%s.cfg' % config_name)
         ctx.log.debug('writing SPEC2006 config to ' + config_path)
-        
+
         with open(config_path, 'w') as f:
             with redirect_stdout(f):
                 print('tune        = base')
@@ -489,8 +489,24 @@ class SPEC2006(Target):
 
                 # allow run wrapper to be set using --define run_wrapper=...
                 print('%ifdef %{run_wrapper}')
-                print('  monitor_wrapper = %{run_wrapper} $command')
+                print('  monitor_wrapper = %{run_wrapper}')
                 print('%endif')
+
+ 
+                # Also allow run_wrapper to be added in the cfg durring build.
+                # Allows use of substitution variables in command
+                if 'target_run_wrapper' in ctx:
+                    print('')
+                    print(f'monitor_wrapper = {ctx.target_run_wrapper}')
+
+                # Allow a wrapper to be executed before benchmarks
+                if 'target_pre_bench' in ctx:
+                    print('')
+                    print(f"monitor_pre_bench = {ctx.target_pre_bench}")
+
+                if 'target_specrun_wrapper' in ctx:
+                    print('')
+                    print(f'monitor_specrun_wrapper = {ctx.target_run_wrapper}')
 
                 # configure benchmarks for 64-bit Linux (hardcoded for now)
                 print('')

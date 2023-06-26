@@ -35,7 +35,6 @@ namespace {
     };
 
     PreservedAnalyses AllocTracker::run(Module &M, ModuleAnalysisManager &) {
-        errs() << "IF I CAN GET THIS TO WORK I WILL BE SO HAPPY\n";
         if (!(AllocRegisterFn = M.getFunction(NOINSTRUMENT_PREFIX "register_alloc"))) {
                 Type *VoidTy = Type::getVoidTy(M.getContext());
                 Type *IntTy = Type::getInt32Ty(M.getContext());
@@ -53,7 +52,7 @@ namespace {
                         if (allocSize.has_value()) {
                             auto FnCallee = M.getOrInsertFunction(NOINSTRUMENT_PREFIX "register_alloc",
                                             Type::getVoidTy(M.getContext()), Type::getInt32Ty(M.getContext()));
-                            errs() << "FOUND AN ALLOCA\n";
+                            
                             IRBuilder<> B(&I.getFunction()->getEntryBlock());
                             B.SetInsertPoint(&I);
                             Value *size = cast<Value>(ConstantInt::get(Type::getInt32Ty(M.getContext()), allocSize.value().getFixedValue()));

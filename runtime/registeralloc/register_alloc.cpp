@@ -3,11 +3,12 @@
 #include <iostream>
 #include <fstream>
 #include <iomanip>
+#include <cstdlib>
 #include <llvm/IR/Type.h>
 
 #define NOINSTRUMENT(name) __noinstrument_##name
 #define NOINSTRUMENT_PREFIX "__noinstrument_"
-#define OUT_FILENAME "stack_allocations.txt"
+#define DEFAULT_OUTFILE "stacktrack.txt"
 
 using namespace std;
 
@@ -43,21 +44,29 @@ namespace {
     extern "C" __attribute__((nothrow))
     void NOINSTRUMENT(register_alloc)(int alloc_size, int typeID) {
         allocations[make_pair(alloc_size, typeID)] += 1;
-        cerr << "Alloc of size " << alloc_size << " and type " << type_names[typeID] <<  " with count " << allocations[make_pair(alloc_size, typeID)] << endl;
-
+        // cerr << "Alloc of size " << alloc_size << " and type " << type_names[typeID] <<  " with count " << allocations[make_pair(alloc_size, typeID)] << endl;
     }
 
     __attribute__((destructor))
     static void NOINSTRUMENT(save_allocs)() {
-        ofstream file;
-        file.open(OUT_FILENAME);
+        char *out_file = getenv("RESULT_OUT_FILE");
 
-        cerr << "Storing " << allocations.size() << " allocation sizes to file " << OUT_FILENAME<< endl;
+        if (out_file == NULL)
+            return;
+            //out_file = strcpy((char *) malloc(strlen(DEFAULT_OUTFILE)), DEFAULT_OUTFILE);
+
+        ofstream file;
+        file.open(out_file);
+
+        cerr << "Storing " << allocations.size() << " allocation sizes to file " << out_file << endl;
 
         for (const auto& [key, val]: allocations) {
             file << val << " allocations size: " << key.first << ", type: " << type_names[key.second] << endl;
         }
 
         file.close();
+        
+        if (strcmp(out_file, DEFAULT_OUTFILE) == 0)
+            free(out_file);
     }
 }

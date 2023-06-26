@@ -15,6 +15,7 @@ from ..instance import Instance
 from ..target import Target
 from ..util import FatalError, Namespace
 
+# pylint: disable=E1101
 
 def median_absolute_deviation(numbers):
     assert len(numbers) > 0

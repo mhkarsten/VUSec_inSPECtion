@@ -140,8 +140,8 @@ class LLVMPasses(Package):
             cflags = ["-fpass-plugin=" + libpath]
             ctx.cflags += cflags
             ctx.cxxflags += cflags
+
         elif not new_pm and compiletime:
-            
             cflags = ["-Xclang", "-load", "-Xclang", libpath]
             ctx.cflags += cflags
             ctx.cxxflags += cflags

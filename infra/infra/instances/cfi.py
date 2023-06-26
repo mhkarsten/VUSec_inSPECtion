@@ -3,6 +3,8 @@ from .clang import Clang
 from ..packages import LLVM
 from ..util import param_attrs
 
+# pylint: disable=E1101
+
 class CFISan(Clang):
     """
     Control Flow Integrity Sanitizer instance. Added ``-fsanitize=cfi`` plus any

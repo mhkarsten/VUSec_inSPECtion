@@ -7,6 +7,7 @@ from ..gnu import Bash, CoreUtils, BinUtils, Make, AutoMake
 from ..cmake import CMake
 from ..ninja import Ninja
 
+# pylint: disable=E1101
 
 class LLVM(Package):
     """

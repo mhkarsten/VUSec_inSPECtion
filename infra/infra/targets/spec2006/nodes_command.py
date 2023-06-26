@@ -5,6 +5,7 @@ from ...command import Command
 from ...commands.report import parse_logs, add_table_report_args, report_table
 from ...util import FatalError, Namespace
 
+# pylint: disable=E1101
 
 class SpecFindBadPrunNodesCommand(Command):
     name = 'spec-find-bad-prun-nodes'

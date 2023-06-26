@@ -2,6 +2,8 @@ from .clang import Clang
 from ..packages import LLVM
 from ..util import param_attrs
 
+# pylint: disable=E1101
+
 class MSan(Clang):
     """
     Memory Sanitizer instance. Added ``-fsanitize=memory`` plus any
@@ -15,14 +17,14 @@ class MSan(Clang):
     :param lto: perform link-time optimizations
     """
     @param_attrs
-    def __init__(self, llvm: LLVM, *, track_origins=None, use_after_destroy=False, lto=False, optlevel=2):
+    def __init__(self, llvm: LLVM, *, track_origins=0, use_after_destroy=False, lto=False, optlevel=2):
         super().__init__(llvm, lto=lto, optlevel=optlevel)
 
     @property
     def name(self):
         name = "msan"
 
-        if self.track_origins is not None:
+        if self.track_origins != 0:
             name += "-track-origins"
 
         if self.use_after_destroy:

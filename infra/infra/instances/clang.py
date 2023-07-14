@@ -64,7 +64,7 @@ class Clang(Instance):
         else:
             assert self.alloc == 'system'
 
-        ctx.cflags += [self.optflag]
+        ctx.cflags += [self.optflag, '-g', '-ggdb', '-fno-omit-frame-pointer']
         ctx.cxxflags += [self.optflag]
 
         if self.lto:

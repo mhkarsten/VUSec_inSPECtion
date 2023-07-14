@@ -31,6 +31,8 @@ struct allocation_t {
 
 static allocation_t allocs[MAX_ALLOCS] = {0};
 
+__attribute__((constructor))
+
 __attribute__((destructor))
 static void write_to_file(void) {
     char *out_file = getenv("RESULT_OUT_FILE");

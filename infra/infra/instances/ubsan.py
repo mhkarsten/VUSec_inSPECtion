@@ -28,12 +28,12 @@ class UbSan(Clang):
     :param lto: perform link-time optimizations
     """
     @param_attrs
-    def __init__(self, llvm: LLVM, *, san_checks=None, no_cheks=None, trap_checks=None, no_recover_checks=None,
-                 strip_path=None, minimal_rt=False, rt_suppression=False, default_checks=True, lto=False, optlevel=2):
+    def __init__(self, llvm: LLVM, *, san_checks=[], no_checks=None, trap_checks=None, no_recover_checks=None,
+                 strip_path=None, minimal_rt=False, rt_suppressions=None, default_checks=True, lto=False, optlevel=2):
         super().__init__(llvm, lto=lto, optlevel=optlevel)
 
-        if default_checks:
-            self.san_checks = ["bounds", "vla-bound", "pointer-overflow"]
+        # if default_checks:
+        #     self.san_checks = ["bounds", "vla-bound", "pointer-overflow"]
 
         # Ensure all checks in trap and recover get added to fsanitize so that the sanitizer gets activated
         other_checks = []
@@ -69,7 +69,11 @@ class UbSan(Clang):
 
         checks = ",".join(self.san_checks)
 
-        cflags = [f'-fsanitize={checks}']
+        if self.default_checks:
+            cflags = ['-fsanitize=undefined']
+        else:
+            cflags = [f'-fsanitize={checks}']
+
         cflags += ['-g', '-fno-omit-frame-pointer']
         
         if self.minimal_rt:
@@ -78,19 +82,26 @@ class UbSan(Clang):
         if self.strip_path is not None:
             cflags += [f"-fsanitize-undefined-strip-path-components={self.strip_path}"]
 
-        if self.no_checks:
+        if self.no_checks is not None:
             cflags += [f"-fno-sanitize={','.join(self.no_checks)}"]
 
-        if self.trap_checks:
+        if self.trap_checks is not None:
             cflags += [f"-fsanitize-trap={','.join(self.trap_checks)}"]
 
-        if self.no_recover_checks:
+        if self.no_recover_checks is not None:
             cflags += [f"-fno-sanitize-recover={','.join(self.no_recover_checks)}"]
 
         ctx.cflags += cflags
         ctx.cxxflags += cflags
         ctx.ldflags += ['-g', '-fno-omit-frame-pointer']
-        ctx.ldflags += [f'-fsanitize={checks}']
+
+        if self.default_checks:
+            ctx.ldflags += ['-fsanitize=undefined']
+        else:
+            ctx.ldflags += [f'-fsanitize={checks}']
+
+        # Set linker to clang++ to enable the runtime needed by UBSan
+        ctx.ld = "clang++"
 
     def prepare_run(self, ctx):
         opts = {

@@ -126,6 +126,10 @@ class LLVM(Package):
         if major_version >= 16:
             get('cmake', 'cmake')
             get('third-party', 'third-party')
+            get('clang', 'clang')
+            get('lld', 'lld')
+            get('libunwind', 'src/runtimes/libunwind')
+            get('libunwind', 'libunwind')
 
         if major_version >= 8:
             get('clang', 'src/tools/clang')
@@ -173,6 +177,8 @@ class LLVM(Package):
             '-DCMAKE_INSTALL_PREFIX=' + self.path(ctx, 'install'),
             '-DLLVM_BINUTILS_INCDIR=' + self.binutils.path(ctx, 'install/include'),
             '-DCMAKE_BUILD_TYPE=Release',
+            '-DLLVM_ENABLE_PROJECTS=lld',
+            # '-DLLVM_ENABLE_RUNTIMES=libunwind',
             '-DLLVM_ENABLE_ASSERTIONS=On',
             '-DLLVM_OPTIMIZED_TABLEGEN=On',
             '-DCMAKE_C_COMPILER=gcc',

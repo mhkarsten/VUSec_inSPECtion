@@ -61,13 +61,13 @@ class CFISan(Clang):
         schemes = "cfi" if self.san_schemes is None else ",".join(self.san_schemes)
 
         cflags = [f"-fsanitize={schemes}"]
-        cflags += ['-g', '-fno-omit-frame-pointer']
-        cflags += ["-fvisibility={self.visibility}"]
+        cflags += ['-g', '-fno-omit-frame-pointer', '-flto']
+        cflags += [f"-fvisibility={self.visibility}"]
 
         if self.so_support:
             cflags += ["-fsanitize-cfi-cross-dso"]
 
-        if self.san_schemes is not None or "mf-call" in self.san_schemes:
+        if self.san_schemes is not None and "mf-call" in self.san_schemes:
             cflags += ["-fcomplete-member-pointers"]
         
         if self.no_san_schemes:
@@ -82,4 +82,7 @@ class CFISan(Clang):
         ctx.cflags += cflags
         ctx.cxxflags += cflags
         ctx.ldflags += [f"-fsanitize={schemes}"]
-        ctx.ldflags += ['-g', '-fno-omit-frame-pointer']
+        ctx.ldflags += ['-g', '-fno-omit-frame-pointer', '-flto', "-fuse-ld=lld"]
+
+        # Use the llvm linker for lto support
+        ctx.ld = "/home/max/University/VU_Amsterdam/Year_3/Thesis/VUSec_inSPECtion/build/packages/llvm-16.0.1-lld/install/bin/lld"

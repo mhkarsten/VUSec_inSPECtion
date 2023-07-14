@@ -3,12 +3,37 @@
 Sets up and runs infrastructure and test for instrumenting benchmarks
 """
 import os
+import datetime
 
 import infra.infra as inf
 from infra.infra.packages import LLVM, LLVMPasses
 from infra.infra.util import run, qjoin
 
 llvm = LLVM(version='16.0.1', compiler_rt=True, patches=[])
+
+# LIST OF SHIT I HAVE TO DO
+# Finish evaluation, write conclusions intros and juice up analysis                     X
+# Write discussion, tak about future work and limitations of the testing methodology    X
+# Write conclusion                                                                      X
+# Update abstract                                                                       X                                                
+# Insert new graphs into document                                                       X
+# Reference new graphs in the paper                                                     X
+# Add some assembly snipits into the paper                                              X
+# Add references                                                                        X
+# Add citations into the paper                                                          X
+# Mention hardware used for tests in the design section                                 X
+# Integrate feedback from supervisor                                                    X
+
+# IF I HAVE TIME
+# Remove CFI shit or investigate it
+# Run extra tests to back up claims
+
+# EXTRA TESTS
+# 
+
+# FINAL DRAFT REVIEW
+
+#F FINAL DRAFT
 
 class HelloWorld(inf.Target):
     name = 'hello-world'
@@ -53,15 +78,22 @@ class PerfTrack(inf.Instance):
                            'iTLB-load-misses', "iTLB-loads"]
 
     def perf_command(self, ctx):
-        result_dir = os.path.join(ctx.paths.root, "results", self.name)
+        datestr = datetime.datetime.today().strftime("perftrack.%Y-%m-%d.%H-%M-%S")
+        result_dir = os.path.join(ctx.paths.root, "results", datestr, self.name)
         stats = ','.join(self.perf_stats)
-
-        return  f"""3>$benchmark.txt.\$\$ perf stat -e {stats} --log-fd 3 $command; \
-                mkdir -p {result_dir}/$lognum/$iter; \
-                mv $benchmark.txt.\$\$ {result_dir}/$lognum/$iter"""
+        # --call-graph dwarf
+        return  f"""mkdir -p {result_dir}; \
+                perf record -F 99 \
+                -e {stats} -o {result_dir}/$benchmark.\$\$.data -g $command;"""
 
     def configure(self, ctx):
-        # Set the build environment (CC, CFLAGS, etc.) for the target program
+        # Add debugging flags to allow perf report better output
+        cflags = ['-ggdb', '-fno-omit-frame-pointer']
+        ctx.cflags += cflags
+        ctx.cxxflags += cflags
+        ctx.ldflags += cflags
+        
+        # set the run wrapper for spec and configure the sanitizer instance for compilation
         ctx.target_specrun_wrapper = self.perf_command(ctx)
         self.san_instance.configure(ctx)
 
@@ -85,7 +117,7 @@ class LibMallocTrack(inf.Instance):
         libpath = self.runtime.path(ctx)
 
         ctx.target_pre_bench = f"mkdir -p {result_dir}/$lognum/$iter"
-        ctx.target_run_wrapper = f"""RESULT_OUT_FILE={result_dir}/$lognum/$iter/$benchmark.txt.\$\$ \
+        ctx.target_specrun_wrapper = f"""RESULT_OUT_FILE={result_dir}/$lognum/$benchmark.txt.\$\$ \
                                  LD_PRELOAD={libpath}/{self.so_name} $command"""
 
         self.san_instance.configure(ctx)
@@ -119,9 +151,9 @@ class LibStackTrack(inf.Instance):
         libpath = self.runtime.path(ctx)
 
         # Set some context values for result collection for perf
-        ctx.target_pre_bench = f"mkdir -p {result_dir}/$lognum/$iter"
+        ctx.target_pre_bench = f"mkdir -p {result_dir}/$lognum"
 
-        ctx.target_run_wrapper = f"""RESULT_OUT_FILE={result_dir}/$lognum/$iter/$benchmark.txt.\$\$ \
+        ctx.target_specrun_wrapper = f"""RESULT_OUT_FILE={result_dir}/$lognum/$benchmark.txt.\$\$ \
                                   LD_PRELOAD={libpath}/libstacktrack.so $command"""
 
         # Configure all used classes

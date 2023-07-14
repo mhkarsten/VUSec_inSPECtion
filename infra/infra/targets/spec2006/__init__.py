@@ -506,7 +506,7 @@ class SPEC2006(Target):
 
                 if 'target_specrun_wrapper' in ctx:
                     print('')
-                    print(f'monitor_specrun_wrapper = {ctx.target_run_wrapper}')
+                    print(f'monitor_specrun_wrapper = {ctx.target_specrun_wrapper}')
 
                 # configure benchmarks for 64-bit Linux (hardcoded for now)
                 print('')

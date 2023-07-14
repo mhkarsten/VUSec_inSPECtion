@@ -62,7 +62,7 @@ class ASan(Clang):
 
     def configure(self, ctx):
         super().configure(ctx)
-        cflags = ['-g']
+        cflags = ['-g', '-fno-omit-frame-pointer']
         cflags += ['-fsanitize=address']
         if not self.stack:
             cflags = ['-mllvm', '-asan-stack=0']

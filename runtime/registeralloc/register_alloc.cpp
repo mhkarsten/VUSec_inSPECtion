@@ -41,19 +41,26 @@ namespace {
         // [llvm::Type::TypeID::TargetExtTyID]         = "Target extension"
     };
 
-    extern "C" __attribute__((nothrow))
+    
+    extern "C" __attribute__((nothrow)) __attribute__((no_sanitize("memory")))
     void NOINSTRUMENT(register_alloc)(int alloc_size, int typeID) {
         allocations[make_pair(alloc_size, typeID)] += 1;
         // cerr << "Alloc of size " << alloc_size << " and type " << type_names[typeID] <<  " with count " << allocations[make_pair(alloc_size, typeID)] << endl;
     }
 
-    __attribute__((destructor))
+    
+    extern "C" __attribute__((destructor)) __attribute__((no_sanitize("memory")))
     static void NOINSTRUMENT(save_allocs)() {
         char *out_file = getenv("RESULT_OUT_FILE");
 
         if (out_file == NULL)
             return;
             //out_file = strcpy((char *) malloc(strlen(DEFAULT_OUTFILE)), DEFAULT_OUTFILE);
+
+        if (allocations.size() == 0) {
+            cerr << "No Allocations to store "  << endl;
+            return;
+        }
 
         ofstream file;
         file.open(out_file);
@@ -66,7 +73,7 @@ namespace {
 
         file.close();
         
-        if (strcmp(out_file, DEFAULT_OUTFILE) == 0)
-            free(out_file);
+        // if (strcmp(out_file, DEFAULT_OUTFILE) == 0)
+        //     free(out_file);
     }
 }

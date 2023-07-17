@@ -177,10 +177,11 @@ class LLVM(Package):
             '-DCMAKE_INSTALL_PREFIX=' + self.path(ctx, 'install'),
             '-DLLVM_BINUTILS_INCDIR=' + self.binutils.path(ctx, 'install/include'),
             '-DCMAKE_BUILD_TYPE=Release',
-            '-DLLVM_ENABLE_PROJECTS=lld',
+            # '-DLLVM_ENABLE_PROJECTS=lld',
             # '-DLLVM_ENABLE_RUNTIMES=libunwind',
             '-DLLVM_ENABLE_ASSERTIONS=On',
             '-DLLVM_OPTIMIZED_TABLEGEN=On',
+            '-DLLVM_CCACHE_BUILD=On',
             '-DCMAKE_C_COMPILER=gcc',
             '-DCMAKE_CXX_COMPILER=g++', # must be the same as used for compiling passes
             *self.build_flags,
@@ -196,6 +197,8 @@ class LLVM(Package):
         return os.path.exists('src')
 
     def is_built(self, ctx):
+        return False
+        # print(f"IT IS BUILT {os.path.exists('obj/bin/llvm-config')}")
         return os.path.exists('obj/bin/llvm-config')
 
     def is_installed(self, ctx):

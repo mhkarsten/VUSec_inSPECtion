@@ -3,7 +3,6 @@ OBJDIR         ?= obj
 LLVM_VERSION   ?= 16.0.1
 
 PKG_CONFIG     := python ../../setup.py pkg-config
-BUILTIN_CFLAGS := `$(PKG_CONFIG) llvm-passes-builtin-$(LLVM_VERSION) --runtime-cflags`
 
 CXX      := ../../build/packages/llvm-16.0.1/install/bin/clang++
 CXXFLAGS := -O2  -fpic -Wall -Wextra -march=native `llvm-config --cxxflags`

@@ -7,7 +7,6 @@ int main(int argc, char **argv) {
     ptr = malloc(2);
     free(ptr);
 
-
     ptr = malloc(2);
     free(ptr);
 

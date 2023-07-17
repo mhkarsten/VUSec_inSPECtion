@@ -44,7 +44,7 @@ namespace {
     
     extern "C" __attribute__((nothrow)) __attribute__((no_sanitize("memory")))
     void NOINSTRUMENT(register_alloc)(int alloc_size, int typeID) {
-        allocations[make_pair(alloc_size, typeID)] += 1;
+        // allocations[make_pair(alloc_size, typeID)] += 1;
         // cerr << "Alloc of size " << alloc_size << " and type " << type_names[typeID] <<  " with count " << allocations[make_pair(alloc_size, typeID)] << endl;
     }
 

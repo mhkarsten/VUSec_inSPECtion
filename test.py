@@ -31,10 +31,10 @@ if __name__ == "__main__":
     iters = 3
 
     # Run the tests for clang-lto for baseline values
-    # run_test_set(sanitizer_instances[4], iters, ['perf'])
+    run_test_set(sanitizer_instances[4], iters, ['heap'])
 
     # Run the tests for asan
-    run_test_set(sanitizer_instances[0], iters, ['perf'])
+    # run_test_set(sanitizer_instances[0], iters, ['perf'])
 
     # Run the tests for msan
     # run_test_set(sanitizer_instances[1], iters)

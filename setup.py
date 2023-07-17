@@ -29,7 +29,13 @@ llvm = LLVM(version='16.0.1', compiler_rt=True, patches=[])
 # Run extra tests to back up claims
 
 # EXTRA TESTS
-# 
+# What are the most shadow props for MSan?                                              X
+# Disable some shadow props for MSan                                                    X
+# Disable quarantine for ASan                                                           X
+# Disable a subset of UBSan tests
+# Figure out how to un inline VDot
+# Test malloc allocations for clang (use with asan analysis)
+
 
 # FINAL DRAFT REVIEW
 
@@ -86,6 +92,9 @@ class PerfTrack(inf.Instance):
                 perf record -F 99 \
                 -e {stats} -o {result_dir}/$benchmark.\$\$.data -g $command;"""
 
+    def dependencies(self):
+        yield self.san_instance.llvm
+
     def configure(self, ctx):
         # Add debugging flags to allow perf report better output
         cflags = ['-ggdb', '-fno-omit-frame-pointer']
@@ -113,11 +122,13 @@ class LibMallocTrack(inf.Instance):
 
     def configure(self, ctx):
         # Set the build environment (CC, CFLAGS, etc.) for the target program
-        result_dir = os.path.join(ctx.paths.root, "results", self.name)
         libpath = self.runtime.path(ctx)
 
-        ctx.target_pre_bench = f"mkdir -p {result_dir}/$lognum/$iter"
-        ctx.target_specrun_wrapper = f"""RESULT_OUT_FILE={result_dir}/$lognum/$benchmark.txt.\$\$ \
+        datestr = datetime.datetime.today().strftime("heaptrack.%Y-%m-%d.%H-%M-%S")
+        result_dir = os.path.join(ctx.paths.root, "results", datestr, self.name)
+
+        ctx.target_pre_bench = f"mkdir -p {result_dir}"
+        ctx.target_specrun_wrapper = f"""RESULT_OUT_FILE={result_dir}/$benchmark.txt.\$\$ \
                                  LD_PRELOAD={libpath}/{self.so_name} $command"""
 
         self.san_instance.configure(ctx)

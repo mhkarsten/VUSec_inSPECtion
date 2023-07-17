@@ -60,6 +60,9 @@ class ASan(Clang):
 
         return name
 
+    def dependencies(self):
+        yield self.llvm
+
     def configure(self, ctx):
         super().configure(ctx)
         cflags = ['-g', '-fno-omit-frame-pointer']

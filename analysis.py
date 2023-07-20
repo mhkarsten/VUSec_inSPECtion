@@ -4,12 +4,36 @@ import os
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 RES_DIR = os.path.join(os.getcwd(), "results", "figures")
 
-def collect_stack_results():
+def collect_stack_results(result_dir, valid_benches):
+    result_dict = {}
+    for (_, __, files) in os.walk(result_dir):
+        for test_file in files:
+            bench_name = test_file.split('.')
+            bench_name = '.'.join([bench_name[0], bench_name[1]])
 
-    pass
+            if bench_name not in valid_benches:
+                continue
+            
+            if bench_name not in result_dict.keys():
+                result_dict[bench_name] = {}
+
+            with open(os.path.join(result_dir, test_file), 'r', encoding='utf-8') as f:
+                results = f.readlines()
+
+                for line in results:
+                    toks = line.split(',')
+
+                    result_dict[bench_name][int(toks[0].split(':')[1].strip())] = {
+                        'count': int(toks[0].split(' ')[0].strip()),
+                        'type': toks[1].split(':')[1].strip()
+                    }
+        break
+    
+    return result_dict
 
 def collect_malloc_results(result_dir, valid_benches):
 
@@ -89,8 +113,6 @@ def collect_spec_results(result_file, stats, aggregate):
     result = subprocess.run(cmd, shell=True, capture_output=True, check=False)
 
     output_table = result.stdout.decode("utf-8").split('\n')
-    # out_stats = list(map(lambda x: x.strip('\r'), output_table[0].split("\t")))
-
     output_table = output_table[1:-1]
 
     result_dict = {}
@@ -176,7 +198,7 @@ def generate_bench_bar(base_res, san_res, desired_bench, desired_stats, instance
         plt.savefig(os.path.join(RES_DIR, f"overhead-{instance_name}-{desired_stats[0]}"))
 
 def gernerate_heap_bar(heap_res, tests, valid_types, instance_name, ax=None):
-    plot = False if ax is None else True
+    plot = ax is None
     
     if len(tests) > 2:
         print("Cannot compare more than two tests")
@@ -212,8 +234,179 @@ def gernerate_heap_bar(heap_res, tests, valid_types, instance_name, ax=None):
 
     if plot:
         plt.subplots_adjust(left=0.25)
+        # plt.savefig(os.path.join(RES_DIR, f"heap-allocations-{instance_name}"))
+
+def generate_comparison_bar(base_res, before_res, after_res, bench_name, desired_stats, instance_name, ax=None):
+    plot = ax is None
+    
+    overhead_before = overhead_as_percent(base_res, before_res)
+    overhead_after = overhead_as_percent(base_res, after_res)
+    
+    # Remove unndeeded stats:
+    overhead_before[bench_name] = dict(filter(lambda x: x[0] in desired_stats, overhead_before[bench_name].items()))
+    overhead_after[bench_name] = dict(filter(lambda x: x[0] in desired_stats, overhead_after[bench_name].items()))
+
+    # Ensure both sets have all needed results
+    for stat in desired_stats:
+        if stat not in overhead_before[bench_name].keys():
+            overhead_before[bench_name][stat] = 0
+        if stat not in overhead_after[bench_name].keys():
+            overhead_after[bench_name][stat] = 0
+
+    # Form the stat array for the dataframe
+    df_stats = {
+        "stat": list(overhead_before[bench_name].keys()) + list(overhead_before[bench_name].keys()),
+        "results": list(overhead_before[bench_name].values()) + list(overhead_after[bench_name].values()),
+        "type": (['before'] * len(overhead_before[bench_name].values())) + (['after'] * len(overhead_after[bench_name].values())),
+    }
+
+    df = pd.DataFrame(df_stats)
+
+    ax = sns.barplot(
+        df,
+        x='results',
+        y='stat',
+        hue='type',
+        palette='mako'
+    )
+
+    ax.set_xlabel("Overhead Percentage")
+    ax.set_ylabel("Statistic")
+    ax.legend(loc=1)
+    ax.set_title(f"Overhead Comparison: {instance_name}")
+
+    if plot:
+        plt.subplots_adjust(left=0.3)
+        plt.savefig(os.path.join(RES_DIR, f"overhead-{instance_name}-{desired_stats[0]}"))
+
+def generate_heap_sum_bar(heap_res, instance_name, valid_types, ax=None):
+    plot = ax is None
+    
+    mpl.style.use('seaborn-v0_8')
+    mpl.rcParams['axes.facecolor'] = 'none'
+    mpl.rcParams['axes.edgecolor'] = 'black'
+    mpl.rcParams['axes.linewidth'] = '1.0'
+
+    mpl.rcParams['xtick.major.size'] = '8.0'
+    mpl.rcParams['xtick.minor.size'] = '5.0'
+    mpl.rcParams['ytick.major.size'] = '8.0'
+    mpl.rcParams['ytick.minor.size'] = '5.0'
+
+    res = {}
+    for bench, vals in heap_res.items():
+        res[bench] = dict(filter(lambda x: x[1]['type'] in valid_types, vals.items()))
+        
+        res[bench] = {}
+        for type in valid_types:
+            res[bench][type] = sum_heap_allocations(heap_res, bench, [type], False)
+    
+    res = dict(sorted(res.items(), key=lambda x: sum(x[1].values())))
+    print_heap_sum_table(res)
+    
+    df_stats = {}
+    for type in valid_types:
+        df_stats[type] = list(map(lambda x: x[type], res.values()))
+
+    df = pd.DataFrame(df_stats, index=res.keys())
+
+    if ax is not None:
+        df.plot.barh(rot=0, legend=True, ax=ax, stacked=True)
+    else:
+        ax = df.plot.barh(rot=0, legend=True, stacked=True)
+
+    ax.set_xlabel("Total Allocations")
+    ax.set_ylabel("Benchmark")
+    ax.set_title(f"Sorted Total Heap Allocations: {instance_name.capitalize()}")
+    ax.set_xscale('log', base=2)
+    # ax.axhline()
+
+    if plot:
+        plt.subplots_adjust(left=0.25)
         plt.savefig(os.path.join(RES_DIR, f"heap-allocations-{instance_name}"))
 
+def generate_stack_sum_bar(stack_res, instance_name, valid_types, ax=None):
+    plot = ax is None
+    
+    mpl.style.use('seaborn-v0_8')
+    mpl.rcParams['axes.facecolor'] = 'none'
+    mpl.rcParams['axes.edgecolor'] = 'black'
+    mpl.rcParams['axes.linewidth'] = '1.0'
+
+    mpl.rcParams['xtick.major.size'] = '8.0'
+    mpl.rcParams['xtick.minor.size'] = '5.0'
+    mpl.rcParams['ytick.major.size'] = '8.0'
+    mpl.rcParams['ytick.minor.size'] = '5.0'
+
+    type_sorted = {}
+    for bench, stats in stack_res.items():
+        type_sorted[bench] = {}
+
+        # Sum by type
+        for size, stat in stats.items():
+            if stat['type'] not in type_sorted[bench].keys():
+                type_sorted[bench][stat['type']] = stat['count']
+            else:
+                type_sorted[bench][stat['type']] += stat['count']
+
+
+    res = dict(sorted(type_sorted.items(), key=lambda x: sum(x[1].values())))
+    print_stack_table(res)
+    
+    df_stats = {}
+    for type in valid_types:
+        df_stats[type] = list(map(lambda x: x[type] if type in x.keys() else 0, res.values()))
+
+    df_stats = dict(filter(lambda x: sum(x[1]) != 0, df_stats.items()))
+
+    df = pd.DataFrame(df_stats, index=res.keys())
+
+    if ax is not None:
+        df.plot.barh(rot=0, legend=True, ax=ax, stacked=True)
+    else:
+        ax = df.plot.barh(rot=0, legend=True, stacked=True)
+
+    ax.set_xlabel("Total Allocations")
+    ax.set_ylabel("Benchmark")
+    ax.set_title(f"Sorted Total Stack Allocations: {instance_name.capitalize()}")
+    ax.set_xscale('log', base=2)
+
+    if plot:
+        plt.subplots_adjust(left=0.25)
+        plt.savefig(os.path.join(RES_DIR, f"heap-allocations-{instance_name}"))
+
+def generate_lib_scatter(bench_heap_res, instance_name, valid_types, lib, cumulative, ax=None):
+    plot = ax is None
+    
+    # Filter out frees
+    bench_heap_res = dict(filter(lambda x: x[1]['type'] in valid_types, bench_heap_res.items()))
+
+    stats = {
+        'count': list(map(lambda x: x['count'], bench_heap_res.values())),
+        'type': list(map(lambda x: x['type'], bench_heap_res.values())),
+        'size': list(bench_heap_res.keys())
+    }
+
+    ax = sns.scatterplot(
+        stats, x='size', y='count', palette='mako', hue='type', linewidth=0, alpha=0.7, s=10, ax=ax)
+
+    ax.set_title(f"{lib} Allocations: {instance_name.capitalize()}")
+    ax.set_xlabel("Allocation Size")
+    ax.set_ylabel("Allocation Count")
+    ax.legend(loc=1)
+    ax.set_yscale('log', base=2)
+    ax.set_xscale('log', base=2)
+    
+    if cumulative:
+        ax2 = ax.twinx()
+        ax2 = sns.ecdfplot(stats, x='size', color='#48233C', stat='proportion', log_scale=2, legend=True, weights=stats['count'], label="% of allocations")
+        ax2.legend(loc=2)
+        ax2.set_ylim([-0.01, 1.01])
+        ax2.set_title(f"{lib} Allocations: {instance_name.capitalize()}")
+        ax2.set_xlabel("Allocation Size")
+    
+    if plot:
+        # plt.subplots_adjust(left=0.25)
+        plt.savefig(os.path.join(RES_DIR, f"{lib}-allocations-{instance_name.split('-')[1]}.png"))
 
 def generate_overhead_bar(base_res, san_res, desired_stats, instance_name, ax=None):
     overhead = overhead_as_percent(base_res, san_res)
@@ -249,10 +442,10 @@ def generate_overhead_bar(base_res, san_res, desired_stats, instance_name, ax=No
     ax.set_xlabel("Overhead Percentage")
     ax.set_ylabel("Benchmark")
     ax.set_title(f"Overhead: {instance_name.capitalize()}")
-
+    
     if plot:
         plt.subplots_adjust(left=0.25)
-        plt.savefig(os.path.join(RES_DIR, f"overhead-{instance_name}-{desired_stats[0]}"))
+        # plt.savefig(os.path.join(RES_DIR, f"overhead-{instance_name}-{desired_stats[0]}"))
 
 def generate_flamegraph(result_file, instance_name, desired_stat):
     res_dir = os.path.join(os.getcwd(), 'results', 'flamegraphs')
@@ -298,6 +491,55 @@ def generate_perf_graphs(base_res, san_res, instance):
     plt.subplots_adjust(hspace=0.25, wspace=0.5)
     plt.show()
 
+def generate_heap_scatters(heap_res, tests, valid_stats, instance):
+
+    plt.figure(1)
+
+    plt.subplot(2, 3, 1)
+    generate_lib_scatter(heap_res[tests[0]], f"{instance} - {tests[0]}", valid_stats, "Heap", True, ax=plt.gca())
+
+    plt.subplot(2, 3, 2)
+    generate_lib_scatter(heap_res[tests[1]], f"{instance} - {tests[1]}", valid_stats, "Heap", True, ax=plt.gca())
+
+    plt.subplot(2, 3, 3)
+    generate_lib_scatter(heap_res[tests[2]], f"{instance} - {tests[2]}", valid_stats, "Heap", True, ax=plt.gca())
+
+    plt.subplot(2, 3, 4)
+    generate_lib_scatter(heap_res[tests[3]], f"{instance} - {tests[3]}", valid_stats, "Heap", True, ax=plt.gca())
+
+    plt.subplot(2, 3, 5)
+    generate_lib_scatter(heap_res[tests[4]], f"{instance} - {tests[4]}", valid_stats, "Heap", True, ax=plt.gca())
+
+    plt.subplot(2, 3, 6)
+    generate_lib_scatter(heap_res[tests[5]], f"{instance} - {tests[5]}", valid_stats, "Heap", True, ax=plt.gca())
+
+    plt.subplots_adjust(hspace=0.25, wspace=0.5)
+    plt.show()
+
+def generate_stack_scatters(heap_res, tests, valid_stats, instance):
+
+    plt.figure(1)
+
+    plt.subplot(2, 3, 1)
+    generate_lib_scatter(heap_res[tests[0]], f"{instance} - {tests[0]}", valid_stats, "Stack", False, ax=plt.gca())
+
+    plt.subplot(2, 3, 2)
+    generate_lib_scatter(heap_res[tests[1]], f"{instance} - {tests[1]}", valid_stats, "Stack", False, ax=plt.gca())
+
+    plt.subplot(2, 3, 3)
+    generate_lib_scatter(heap_res[tests[2]], f"{instance} - {tests[2]}", valid_stats, "Stack", False, ax=plt.gca())
+
+    plt.subplot(2, 3, 4)
+    generate_lib_scatter(heap_res[tests[3]], f"{instance} - {tests[3]}", valid_stats, "Stack", False, ax=plt.gca())
+
+    plt.subplot(2, 3, 5)
+    generate_lib_scatter(heap_res[tests[4]], f"{instance} - {tests[4]}", valid_stats, "Stack", False, ax=plt.gca())
+
+    plt.subplot(2, 3, 6)
+    generate_lib_scatter(heap_res[tests[5]], f"{instance} - {tests[5]}", valid_stats, "Stack", False, ax=plt.gca())
+
+    plt.subplots_adjust(hspace=0.25, wspace=0.5)
+    plt.show()
 
 def generate_base_graphs(base_res, san_res, instance):
 
@@ -327,9 +569,42 @@ def print_result_table(result):
         for stat, value in stats.items():
             print(f"Stat: {stat}, Value: {value}")
 
+def print_heap_sum_table(result):
+    for bench, val in result.items():
+        print(f"Benchmark name: {bench}, Total Heap Allocations: {val}")
+
+def sum_stack_allocations(result):
+    type_sorted = {}
+    for bench, stats in result.items():
+        type_sorted[bench] = {}
+
+        # Sum total
+        total_allocations = sum(list(map(lambda x: x[1]['count'], result[bench].items())))
+
+        # Sum by type
+        for size, stat in stats.items():
+            if stat['type'] not in type_sorted[bench].keys():
+                type_sorted[bench][stat['type']] = stat['count']
+            else:
+                type_sorted[bench][stat['type']] += stat['count']
+
+        # Calculate percents
+        for type, count in type_sorted[bench].items():
+            type_sorted[bench][type] = (count / total_allocations) * 100
+
+    return type_sorted
+
+def print_stack_table(results):
+    for bench, stats in results.items():
+        print(bench)
+        for name, percent in stats.items():
+            print(f"Type: {name} - {percent}%")
+
+styles = ['seaborn-v0_8', 'seaborn-v0_8-bright', 'seaborn-v0_8-colorblind', 'seaborn-v0_8-dark', 'seaborn-v0_8-dark-palette', 'seaborn-v0_8-darkgrid', 'seaborn-v0_8-deep', 'seaborn-v0_8-muted', 'seaborn-v0_8-notebook', 'seaborn-v0_8-paper', 'seaborn-v0_8-pastel', 'seaborn-v0_8-poster', 'seaborn-v0_8-talk', 'seaborn-v0_8-ticks', 'seaborn-v0_8-white', 'seaborn-v0_8-whitegrid']
+
 if __name__ == "__main__":
-    stats =      [  "runtime", "maxrss", "io_operations", "page_faults", 
-                    "context_switches", "status"]
+    stats =      [  "runtime", "maxrss", "io_operations", "context_switches", "page_faults", 
+                    "status"]
 
     aggregates = [  "mean", "median", "stdev", "stdev_percent", 
                     "variance", "mad", "min", "max", 
@@ -337,14 +612,20 @@ if __name__ == "__main__":
                     "first", "all", "sort", "geomean"]
 
     perf_stats = [  'instructions', 'cache-references', 'cache-misses', 'branches',
-                    'branch-misses', 'faults', 'minor-faults', 'major-faults',
+                    'branch-misses', 
                     'dTLB-load-misses', 'dTLB-loads', 'dTLB-store-misses', 'dTLB-stores',
                     'L1-dcache-load-misses', 'L1-dcache-loads', 'L1-dcache-stores', 'L1-icache-load-misses',
-                    'iTLB-load-misses', "iTLB-loads"]
+                    'iTLB-load-misses', "iTLB-loads", 'faults', 'minor-faults', 'major-faults']
     
+    stack_types = ["16-bit floating point", "16-bit floating point (7-bit significand)", "32-bit floating point",
+        "64-bit floating point", "80-bit floating point (X87)", "128-bit floating point (112-bit significand) ", "128-bit floating point (two 64-bits, PowerPC) ",
+        "void", "label", "metadata", "MMX vectors (64 bits, X86 specific)", "AMX vectors (8192 bits, X86 specific)", "token", "integer", "function",
+        "pointer", "struct", "array", "Fixed width SIMD vector", "Scalable SIMD vector"]
     
-    test_name = "482.sphinx3"
-    san_name = "MSan"
+    test_name = "453.povray"
+    san_name = "Clang"
+
+    # print(mpl.rcParams)
 
     #
     # BASELINE RESULTS
@@ -353,9 +634,9 @@ if __name__ == "__main__":
     clang_baseline_res = collect_spec_results("results/run.old-clang-baseline", stats[:5], aggregates[15])
 
     # san_baseline_res = collect_spec_results("results/run.old-asan-baseline", stats[:5], aggregates[15])
-    san_baseline_res = collect_spec_results("results/run.msan-baseline", stats[:5], aggregates[15])
+    # san_baseline_res = collect_spec_results("results/run.msan-baseline", stats[:5], aggregates[15])
     # san_baseline_res = collect_spec_results("results/run.cfi-baseline", stats[:5], aggregates[15])
-    # san_baseline_res = collect_spec_results("results/run.ubsan-baseline", stats[:5], aggregates[15])
+    san_baseline_res = collect_spec_results("results/run.ubsan-baseline", stats[:5], aggregates[15])
 
     # generate_overhead_bar(clang_baseline_res, san_baseline_res, ['runtime'], 'UBSan')
     
@@ -374,9 +655,9 @@ if __name__ == "__main__":
     clang_perf_res = collect_perf_results("results/perftrack.clang-lto/perftrack-clang-lto", perf_stats, list(clang_baseline_res.keys()))
     
     valid_benches = list(dict(filter(lambda x: '-' not in x[1].values(), san_baseline_res.items())).keys())
-    san_perf_res = collect_perf_results("results/perftrack.msan/perftrack-msan", perf_stats, valid_benches)
+    # san_perf_res = collect_perf_results("results/perftrack.msan/perftrack-msan", perf_stats, valid_benches)
     # san_perf_res = collect_perf_results("results/perftrack.cfi/perftrack-cfi-vis-hidden", perf_stats, valid_benches)
-    # san_perf_res = collect_perf_results("results/perftrack.ubsan/perftrack-ubsan-default", perf_stats, valid_benches)
+    san_perf_res = collect_perf_results("results/perftrack.ubsan/perftrack-ubsan-default", perf_stats, valid_benches)
     # san_perf_res = collect_perf_results("results/perftrack.asan/perftrack-asan", perf_stats, valid_benches)
 
     # generate_bench_bar(clang_perf_res,  san_perf_res, test_name, ['faults', 'minor-faults', 'major-faults'], f"{san_name} {test_name.split('.')[1]}")
@@ -392,13 +673,31 @@ if __name__ == "__main__":
     #
     # HEAP RESULTS
     #
-    heap_asan_res = collect_malloc_results("results/libmalloctrack-asan/1338", ['400.perlbench', '462.libquantum'])
 
-    sum_perl = sum_heap_allocations(heap_asan_res, '400.perlbench', ['Malloc', 'Calloc'], True)
-    sum_lib = sum_heap_allocations(heap_asan_res, '462.libquantum', ['Malloc', 'Calloc'], True)
+    heap_clang_res = collect_malloc_results("results/heaptrack.clang-lto/libmalloctrack-clang-lto", list(clang_baseline_res.keys()))
 
-    gernerate_heap_bar(heap_asan_res, ['400.perlbench', '462.libquantum'], ['Malloc', 'Calloc'], 'perlbench - libquantum')
+    # generate_heap_sum_bar(heap_clang_res, san_name, ['Malloc', 'Calloc', 'Realloc', 'Free'])
     
+    # generate_lib_scatter(heap_clang_res[test_name], f"{san_name} - {test_name}", "Heap", True, ['Malloc', 'Calloc', 'Realloc'])
+    
+    # generate_heap_scatters(heap_clang_res, ['400.perlbench', '462.libquantum', '471.omnetpp', '447.dealII', '483.xalancbmk', '482.sphinx3'], ['Malloc', 'Calloc', 'Realloc', 'Free'], "heap track")
+    
+    # gernerate_heap_bar(heap_clang_res, ['400.perlbench', '462.libquantum'], ['Malloc', 'Calloc'], 'perlbench - libquantum')
+    
+
+    #
+    # STACK RESULTS
+    #
+
+    stack_clang_res = collect_stack_results("results/stacktrack.clang-lto/libstacktrack-clang-lto",  list(clang_baseline_res.keys()))
+
+    # generate_stack_scatters(stack_clang_res, ['400.perlbench', '462.libquantum', '471.omnetpp', '447.dealII', '483.xalancbmk', '482.sphinx3'], stack_types, "stack track")
+    
+    # generate_stack_sum_bar(stack_clang_res, "Stack Track", stack_types)
+    
+    # stack_percents = sum_stack_allocations(stack_clang_res)
+
+    # print(stack_clang_res)
 
     #
     # FLAME GRAPH RESULTS
@@ -412,13 +711,43 @@ if __name__ == "__main__":
     # FURTHER TESTING
     #
 
-    ### ASan no quarantine
+    ### ASan no quarantine (only has perlbench, compare with libquantum as well?)
+    no_quar_base = collect_spec_results("results/run.asan_no_quarantine", stats[:5], aggregates[15])
+    no_quar_perf = collect_perf_results("results/perftrack.asan_no_quarantine/perftrack-asan", perf_stats, list(no_quar_base.keys()))
 
-    ### MSan no complex propagations
+    # generate_comparison_bar(clang_baseline_res, san_baseline_res, no_quar_base, '400.perlbench', stats[:4], "perlbench - ASan quarantine disabled")
+    # generate_comparison_bar(clang_perf_res, san_perf_res, no_quar_perf, '400.perlbench', perf_stats[:-3], "perlbench - ASan quarantine disabled")
+    
+    ### MSan no complex propagations (only has gcc, compare with sphinx3 as well?)
+    no_complex_base = collect_spec_results("results/run.msan_no_complex", stats[:5], aggregates[15])
+    no_complex_perf = collect_perf_results("results/perftrack.msan_no_complex/perftrack-msan", perf_stats, list(no_complex_base.keys()))
 
-    ### UBSan no instrument on VDot
+    # generate_comparison_bar(clang_baseline_res, san_baseline_res, no_complex_base, '403.gcc', stats[:4], "gcc - MSan no complex propagation")
+    # generate_comparison_bar(clang_perf_res, san_perf_res, no_complex_perf, '403.gcc', perf_stats[:-3], "gcc - MSan no complex propagation")
 
-    ### ASan Allocations
+    ### UBSan no instrument on VDot (test only valid for povray)
+    no_vdot_base = collect_spec_results("results/run.ubsan_no_vdot_2", stats[:5], aggregates[15])
+    no_vdot_perf = collect_perf_results("results/perftrack.ubsan_no_vdot_2/perftrack-ubsan-default", perf_stats, list(no_vdot_base.keys()))
 
-    ### UBSan disable subset
+    # generate_comparison_bar(clang_baseline_res, san_baseline_res, no_vdot_base, '453.povray', stats[:5], "povray - UBSan no_instrument VDot")
+    # generate_comparison_bar(clang_perf_res, san_perf_res, no_vdot_perf, '453.povray', perf_stats, "povray - UBSan no_instrument VDot")
 
+    ### UBSan disable subset (disable most common instrument ??? )
+    # No valid run for this yet, do we bother?
+    
+    ### Heap Allocations                            X
+    # generate_heap_sum_bar(heap_clang_res, san_name, ['Malloc', 'Calloc', 'Realloc', 'Free'])
+
+    # ASan graphs
+
+    # generate_lib_scatter(heap_clang_res['400.perlbench'], "Clang - 400.perlbench", ['Malloc', 'Calloc', 'Realloc'], "Heap", True, ax=None)
+    # generate_lib_scatter(heap_clang_res['462.libquantum'], "Clang - 462.libquantum", ['Malloc', 'Calloc', 'Realloc'], "Heap", True, ax=None)
+
+    ### Stack Allocations                           X
+    generate_stack_sum_bar(stack_clang_res, "Stack Track", stack_types)
+
+    # MSan graphs
+
+    # UBSan graphs
+
+    plt.show()

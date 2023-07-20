@@ -14,7 +14,7 @@ using namespace std;
 
 namespace {
     // Maps type ID and size to their count
-    static map<pair<int, int>, int> allocations;
+    static map<pair<long long int, int>, long long int> allocations;
     
     const char *const type_names[] = {
         [llvm::Type::TypeID::HalfTyID]      = "16-bit floating point",
@@ -42,20 +42,17 @@ namespace {
     };
 
     
-    extern "C" __attribute__((nothrow)) __attribute__((no_sanitize("memory")))
+    extern "C" __attribute__((nothrow))
     void NOINSTRUMENT(register_alloc)(int alloc_size, int typeID) {
-        // allocations[make_pair(alloc_size, typeID)] += 1;
-        // cerr << "Alloc of size " << alloc_size << " and type " << type_names[typeID] <<  " with count " << allocations[make_pair(alloc_size, typeID)] << endl;
+        allocations[make_pair(alloc_size, typeID)] += 1;
     }
-
     
-    extern "C" __attribute__((destructor)) __attribute__((no_sanitize("memory")))
+    __attribute__((destructor))
     static void NOINSTRUMENT(save_allocs)() {
         char *out_file = getenv("RESULT_OUT_FILE");
 
         if (out_file == NULL)
             return;
-            //out_file = strcpy((char *) malloc(strlen(DEFAULT_OUTFILE)), DEFAULT_OUTFILE);
 
         if (allocations.size() == 0) {
             cerr << "No Allocations to store "  << endl;
@@ -63,7 +60,7 @@ namespace {
         }
 
         ofstream file;
-        file.open(out_file);
+        file.open(out_file, ofstream::out | ofstream::app);
 
         cerr << "Storing " << allocations.size() << " allocation sizes to file " << out_file << endl;
 
@@ -72,8 +69,5 @@ namespace {
         }
 
         file.close();
-        
-        // if (strcmp(out_file, DEFAULT_OUTFILE) == 0)
-        //     free(out_file);
     }
 }

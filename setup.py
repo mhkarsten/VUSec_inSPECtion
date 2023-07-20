@@ -158,13 +158,14 @@ class LibStackTrack(inf.Instance):
 
     # Set the build environment (CC, CFLAGS, etc.) for the target program
     def configure(self, ctx):
-        result_dir = os.path.join(ctx.paths.root, "results", self.name)
+        datestr = datetime.datetime.today().strftime("stacktrack.%Y-%m-%d.%H-%M-%S")
+        result_dir = os.path.join(ctx.paths.root, "results", datestr, self.name)
         libpath = self.runtime.path(ctx)
 
         # Set some context values for result collection for perf
-        ctx.target_pre_bench = f"mkdir -p {result_dir}/$lognum"
+        ctx.target_pre_bench = f"mkdir -p {result_dir}"
 
-        ctx.target_specrun_wrapper = f"""RESULT_OUT_FILE={result_dir}/$lognum/$benchmark.txt.\$\$ \
+        ctx.target_specrun_wrapper = f"""RESULT_OUT_FILE={result_dir}/$benchmark.txt.\$\$ \
                                   LD_PRELOAD={libpath}/libstacktrack.so $command"""
 
         # Configure all used classes

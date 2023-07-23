@@ -1,0 +1,286 @@
+quantum_toffoli() /home/max/University/VU_Amsterdam/Year_3/Thesis/VUSec_inSPECtion/build/targets/spec2006/install/benchspec/CPU2006/462.libquantum/run/run_base_ref_infra-perftrack-clang-lto.0000/libquantum_base.infra-perftrack-clang-lto
+Event: instructions:u
+
+Percent        
+               
+               
+              Disassembly of section .text:
+               
+              0000000000001ab0 <quantum_toffoli>:
+              quantum_toffoli():
+               
+              /* Apply a toffoli (or controlled-controlled-not) gate */
+               
+              void        
+              quantum_toffoli(int control1, int control2, int target, quantum_reg *reg)
+              {           
+        1ab0:   push   %rbp     
+        1ab1:   mov    %rsp,%rbp
+        1ab4:   push   %r15     
+        1ab6:   push   %r14     
+        1ab8:   push   %r13     
+        1aba:   push   %r12     
+        1abc:   push   %rbx     
+        1abd:   sub    $0x18,%rsp
+        1ac1:   mov    %rcx,%r14
+        1ac4:   mov    %edx,%ebx
+        1ac6:   mov    %esi,%edx
+        1ac8:   mov    %edi,%r12d
+              int i;      
+              int qec;    
+               
+              quantum_qec_get_status(&qec, NULL);
+               
+              if(qec)     
+        1acb:   cmpb   $0x1,0x7666(%rip)        # 9138 <type>
+        1ad2: ↓ jne    1be4 <quantum_toffoli+0x134>
+              {           
+              int i;      
+              int c1, c2; 
+              MAX_UNSIGNED mask;
+               
+              mask = ((MAX_UNSIGNED) 1 << target)
+        1ad8:   mov    $0x1,%r10d
+        1ade:   mov    %ebx,%ecx
+        1ae0:   shl    %cl,%r10 
+              + ((MAX_UNSIGNED) 1 << (target+width))
+        1ae3:   mov    0x7652(%rip),%r9d        # 913c <width>
+        1aea:   lea    (%r9,%rbx,1),%ecx
+        1aee:   mov    $0x1,%esi
+        1af3:   shl    %cl,%rsi 
+              + ((MAX_UNSIGNED) 1 << (target+2*width));
+        1af6:   lea    (%rbx,%r9,2),%ecx
+        1afa:   mov    $0x1,%eax
+        1aff:   shl    %cl,%rax 
+        1b02:   mov    $0x1,%ecx
+        1b07:   mov    %rcx,-0x38(%rbp)
+        1b0b:   mov    %r14,-0x30(%rbp)
+        1b0f:   mov    0x4(%r14),%r14d
+               
+              for(i=0;i<reg->size;i++)
+        1b13:   test   %r14d,%r14d
+        1b16: ↓ jle    1c71 <quantum_toffoli+0x1c1>
+        1b1c:   mov    $0x1,%r13d
+        1b22:   mov    %r12d,%ecx
+        1b25:   shl    %cl,%r13 
+        1b28:   lea    (%r9,%r12,1),%ecx
+        1b2c:   mov    $0x1,%r15d
+        1b32:   shl    %cl,%r15 
+        1b35:   lea    (%r9,%r9,1),%edi
+        1b39:   add    %edi,%r12d
+        1b3c:   mov    %r12,%rcx
+        1b3f:   mov    $0x1,%r12d
+        1b45:   shl    %cl,%r12 
+        1b48:   mov    $0x1,%r8d
+        1b4e:   mov    %edx,%ecx
+        1b50:   shl    %cl,%r8  
+        1b53:   mov    %rsi,%rbx
+        1b56:   add    %r10,%rbx
+        1b59:   add    %edx,%r9d
+        1b5c:   mov    $0x1,%esi
+        1b61:   mov    %r9d,%ecx
+        1b64:   shl    %cl,%rsi 
+        1b67:   add    %edx,%edi
+        1b69:   mov    %edi,%ecx
+        1b6b:   shlq   %cl,-0x38(%rbp)
+        1b6f:   add    %rax,%rbx
+        1b72:   mov    %rbx,-0x40(%rbp)
+        1b76:   mov    -0x30(%rbp),%rax
+        1b7a:   mov    0x10(%rax),%rdi
+        1b7e:   shl    $0x4,%r14
+        1b82:   xor    %edx,%edx
+        1b84: ↓ jmp    1b9d <quantum_toffoli+0xed>
+        1b86:   cs     nopw 0x0(%rax,%rax,1)
+        1b90:   add    $0x10,%rdx
+        1b94:   cmp    %rdx,%r14
+        1b97: ↓ je     1c71 <quantum_toffoli+0x1c1>
+              {           
+              c1 = 0;     
+              c2 = 0;     
+               
+              if(reg->node[i].state & ((MAX_UNSIGNED) 1 << control1))
+        1b9d:   mov    0x8(%rdi,%rdx,1),%rax
+        1ba2:   test   %r13,%rax
+        1ba5:   setne  %cl      
+              c1 = 1;     
+              if(reg->node[i].state
+              & ((MAX_UNSIGNED) 1 << (control1+width)))
+        1ba8:   test   %r15,%rax
+        1bab:   setne  %r10b    
+              if(reg->node[i].state
+        1baf:   xor    %cl,%r10b
+              {           
+              c1 ^= 1;    
+              }           
+              if(reg->node[i].state
+              & ((MAX_UNSIGNED) 1 << (control1+2*width)))
+        1bb2:   test   %r12,%rax
+        1bb5:   setne  %r11b    
+              {           
+              c1 ^= 1;    
+              }           
+               
+              if(reg->node[i].state & ((MAX_UNSIGNED) 1 << control2))
+        1bb9:   test   %r8,%rax 
+        1bbc:   setne  %bl      
+              c2 = 1;     
+              if(reg->node[i].state
+              & ((MAX_UNSIGNED) 1 << (control2+width)))
+        1bbf:   test   %rsi,%rax
+        1bc2:   setne  %r9b     
+              {           
+              c2 ^= 1;    
+              }           
+              if(reg->node[i].state
+              & ((MAX_UNSIGNED) 1 << (control2+2*width)))
+        1bc6:   test   %rax,-0x38(%rbp)
+        1bca:   setne  %cl      
+              if(reg->node[i].state
+        1bcd:   cmp    %r10b,%r11b
+              {           
+              c2 ^= 1;    
+              }           
+               
+              if(c1 == 1 && c2 == 1)
+        1bd0: ↑ je     1b90 <quantum_toffoli+0xe0>
+        1bd2:   xor    %r9b,%bl 
+        1bd5:   xor    %bl,%cl  
+        1bd7: ↑ je     1b90 <quantum_toffoli+0xe0>
+              reg->node[i].state = reg->node[i].state ^ mask;
+        1bd9:   xor    -0x40(%rbp),%rax
+        1bdd:   mov    %rax,0x8(%rdi,%rdx,1)
+        1be2: ↑ jmp    1b90 <quantum_toffoli+0xe0>
+              quantum_toffoli_ft(control1, control2, target, reg);
+              else        
+              {           
+              if(quantum_objcode_put(TOFFOLI, control1, control2, target))
+        1be4:   mov    $0x2,%edi
+        1be9:   mov    %r12d,%esi
+        1bec:   mov    %ebx,%ecx
+        1bee:   xor    %eax,%eax
+        1bf0:   mov    %edx,%r15d
+        1bf3: → call   3fd0 <quantum_objcode_put>
+        1bf8:   test   %eax,%eax
+        1bfa: ↓ jne    1c93 <quantum_toffoli+0x1e3>
+        1c00:   mov    0x4(%r14),%r8d
+              return;     
+               
+              for(i=0; i<reg->size; i++)
+        1c04:   test   %r8d,%r8d
+        1c07: ↓ jle    1c5b <quantum_toffoli+0x1ab>
+        1c09:   mov    %r15d,%ecx
+        1c0c:   mov    $0x1,%r10d
+        1c12:   mov    $0x1,%esi
+        1c17:   shl    %cl,%rsi 
+        1c1a:   mov    %ebx,%ecx
+        1c1c:   shl    %cl,%r10 
+        1c1f:   mov    0x10(%r14),%r9
+        1c23:   bts    %r12,%rsi
+        1c27:   cmp    $0x1,%r8d
+        1c2b: ↓ jne    1cd6 <quantum_toffoli+0x226>
+        1c31:   xor    %edi,%edi
+              {           
+              /* Flip the target bit of a basis state if both control bits are
+              set */      
+               
+              if(reg->node[i].state & ((MAX_UNSIGNED) 1 << control1))
+        1c33:   test   $0x1,%r8b
+        1c37: ↓ je     1c5b <quantum_toffoli+0x1ab>
+        1c39:   shl    $0x4,%rdi
+        1c3d:   mov    0x8(%r9,%rdi,1),%rdx
+        1c42:   mov    %rdx,%rax
+        1c45:   not    %rax     
+        1c48:   test   %rax,%rsi
+        1c4b: ↓ jne    1c5b <quantum_toffoli+0x1ab>
+        1c4d:   lea    (%r9,%rdi,1),%rax
+        1c51:   add    $0x8,%rax
+              {           
+              if(reg->node[i].state & ((MAX_UNSIGNED) 1 << control2))
+              {           
+              reg->node[i].state ^= ((MAX_UNSIGNED) 1 << target);
+        1c55:   xor    %r10,%rdx
+        1c58:   mov    %rdx,(%rax)
+              }           
+              }           
+              }           
+              quantum_decohere(reg);
+        1c5b:   mov    %r14,%rdi
+        1c5e:   add    $0x18,%rsp
+        1c62:   pop    %rbx     
+        1c63:   pop    %r12     
+        1c65:   pop    %r13     
+        1c67:   pop    %r14     
+        1c69:   pop    %r15     
+        1c6b:   pop    %rbp     
+        1c6c: → jmp    1580 <quantum_decohere>
+        1c71:   mov    -0x30(%rbp),%rbx
+               
+              }           
+               
+              quantum_decohere(reg);
+        1c75:   mov    %rbx,%rdi
+        1c78: → call   1580 <quantum_decohere>
+              counter += inc;
+        1c7d:   mov    0x74bd(%rip),%eax        # 9140 <quantum_qec_counter.counter>
+        1c83:   lea    0x1(%rax),%ecx
+        1c86:   mov    %ecx,0x74b4(%rip)        # 9140 <quantum_qec_counter.counter>
+              if(counter >= freq)
+        1c8c:   cmp    $0x3fffffff,%eax
+        1c91: ↓ jge    1ca2 <quantum_toffoli+0x1f2>
+              }           
+              }           
+        1c93:   add    $0x18,%rsp
+        1c97:   pop    %rbx     
+        1c98:   pop    %r12     
+        1c9a:   pop    %r13     
+        1c9c:   pop    %r14     
+        1c9e:   pop    %r15     
+        1ca0:   pop    %rbp     
+        1ca1: ← ret             
+              counter = 0;
+        1ca2:   movl   $0x0,0x7494(%rip)        # 9140 <quantum_qec_counter.counter>
+              quantum_qec_decode(type, width, reg);
+        1cac:   mov    0x748a(%rip),%edi        # 913c <width>
+        1cb2:   mov    %rbx,%rsi
+        1cb5: → call   4960 <quantum_qec_decode>
+              quantum_qec_encode(type, width, reg);
+        1cba:   mov    0x747c(%rip),%edi        # 913c <width>
+        1cc0:   mov    %rbx,%rsi
+        1cc3:   add    $0x18,%rsp
+        1cc7:   pop    %rbx     
+        1cc8:   pop    %r12     
+        1cca:   pop    %r13     
+        1ccc:   pop    %r14     
+        1cce:   pop    %r15     
+        1cd0:   pop    %rbp     
+        1cd1: → jmp    48a0 <quantum_qec_encode>
+              for(i=0; i<reg->size; i++)
+        1cd6:   mov    %r8d,%edx
+        1cd9:   and    $0xfffffffe,%edx
+        1cdc:   lea    0x18(%r9),%rbx
+        1ce0:   xor    %edi,%edi
+        1ce2: ↓ jmp    1d01 <quantum_toffoli+0x251>
+        1ce4:   data16 data16 cs nopw 0x0(%rax,%rax,1)
+  6.16  1cf0:   add    $0x2,%rdi
+  3.19  1cf4:   add    $0x20,%rbx
+  1.82  1cf8:   cmp    %rdi,%rdx
+        1cfb: ↑ je     1c33 <quantum_toffoli+0x183>
+              if(reg->node[i].state & ((MAX_UNSIGNED) 1 << control1))
+  2.69  1d01:   mov    -0x10(%rbx),%rax
+  6.91  1d05:   mov    %rax,%rcx
+  2.65  1d08:   not    %rcx     
+  3.68  1d0b:   test   %rcx,%rsi
+        1d0e: ↓ jne    1d17 <quantum_toffoli+0x267>
+              reg->node[i].state ^= ((MAX_UNSIGNED) 1 << target);
+  0.62  1d10:   xor    %r10,%rax
+  0.34  1d13:   mov    %rax,-0x10(%rbx)
+              if(reg->node[i].state & ((MAX_UNSIGNED) 1 << control1))
+  2.78  1d17:   mov    (%rbx),%rcx
+ 58.15  1d1a:   mov    %rcx,%rax
+  2.58  1d1d:   not    %rax     
+  6.57  1d20:   test   %rax,%rsi
+        1d23: ↑ jne    1cf0 <quantum_toffoli+0x240>
+              reg->node[i].state ^= ((MAX_UNSIGNED) 1 << target);
+  0.73  1d25:   xor    %r10,%rcx
+  0.28  1d28:   mov    %rcx,(%rbx)
+  0.85  1d2b: ↑ jmp    1cf0 <quantum_toffoli+0x240>

@@ -37,7 +37,7 @@ class ASan(Clang):
 
     @property
     def name(self):
-        name = 'asan'
+        name = 'asan-wq'
 
         if self.redzone is not None:
             name += str(self.redzone)

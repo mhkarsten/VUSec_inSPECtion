@@ -27,17 +27,17 @@ def run_test_set(instance, iterations=1, subset=[]):
         subprocess.run(stack_cmd, check=False, shell=True)
 
 if __name__ == "__main__":
-    sanitizer_instances = ['asan', 'msan', 'ubsan-default', 'cfi-vis-hidden', 'clang-lto']
+    sanitizer_instances = ['asan-noq', 'msan-noc', 'ubsan-default', 'cfi-vis-hidden', 'clang-lto']
     iters = 3
 
     # Run the tests for clang-lto for baseline values
-    run_test_set(sanitizer_instances[4], iters, ['stack'])
+    # run_test_set(sanitizer_instances[4], iters, ['stack'])
 
     # Run the tests for asan
-    # run_test_set(sanitizer_instances[0], iters, ['perf'])
+    run_test_set(sanitizer_instances[0], iters, ['perf'])
 
     # Run the tests for msan
-    # run_test_set(sanitizer_instances[1], iters)
+    run_test_set(sanitizer_instances[1], iters, ['perf'])
 
     # Run the tests for cfi
     # run_test_set(sanitizer_instances[3], iters)

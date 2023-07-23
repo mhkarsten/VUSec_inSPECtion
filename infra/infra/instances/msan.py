@@ -22,7 +22,7 @@ class MSan(Clang):
 
     @property
     def name(self):
-        name = "msan"
+        name = "msan-noc"
 
         if self.track_origins != 0:
             name += "-track-origins"

@@ -24,7 +24,10 @@ def median_absolute_deviation(numbers):
 
 
 def stdev_percent(numbers):
-    return 100 * pstdev(numbers) / mean(numbers)
+    if mean(numbers) != 0:
+        return 100 * pstdev(numbers) / mean(numbers)
+    else:
+        return 0
 
 
 def assert_all_same(values):

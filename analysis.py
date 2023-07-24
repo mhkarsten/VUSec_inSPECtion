@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from re import S
 import subprocess
 import os
 import seaborn as sns
@@ -159,8 +160,8 @@ def overhead_as_percent(base_res, san_res):
                     overheads[bench][name] = (diff / base_values[name]) * 100
                 else:
                     overheads[bench][name] = value
-        else:
-            print(f"Failed test: {bench}")
+        # else:
+        #     print(f"Failed test: {bench}")
 
     return overheads
 
@@ -195,7 +196,7 @@ def generate_bench_bar(base_res, san_res, desired_bench, desired_stats, instance
 
     if plot:
         plt.subplots_adjust(left=0.25)
-        plt.savefig(os.path.join(RES_DIR, f"overhead-{instance_name}-{desired_stats[0]}"))
+        plt.savefig(os.path.join(RES_DIR, f"bench-{instance_name}-{desired_stats[0]}.pdf"))
 
 def gernerate_heap_bar(heap_res, tests, valid_types, instance_name, ax=None):
     plot = ax is None
@@ -234,7 +235,50 @@ def gernerate_heap_bar(heap_res, tests, valid_types, instance_name, ax=None):
 
     if plot:
         plt.subplots_adjust(left=0.25)
-        # plt.savefig(os.path.join(RES_DIR, f"heap-allocations-{instance_name}"))
+        plt.savefig(os.path.join(RES_DIR, f"heap-allocations-{instance_name}.pdf"))
+
+def generate_bench_comparison_bar(base_res, before_res, after_res, desired_stat, instance_name, ax=None):
+    plot = ax is None
+    
+    overhead_before = overhead_as_percent(base_res, before_res)
+    overhead_after = overhead_as_percent(base_res, after_res)
+
+    valid_benches = []
+    for key in overhead_before.keys():
+        if key in overhead_after.keys():
+            valid_benches += [key]
+
+    # Ensure both sets have all needed results
+    df_stats = {}
+    df_stats['value'] = []
+    df_stats['type'] = []
+    df_stats['bench'] = []
+    for bench in valid_benches:
+        df_stats['bench'] += [bench, bench]
+        df_stats['type'] += ['before', 'after']
+        df_stats['value'] += [overhead_before[bench][desired_stat], overhead_after[bench][desired_stat]]
+
+    # Form the stat array for the dataframe
+    
+    df = pd.DataFrame(df_stats, index=df_stats['bench'])
+
+    ax = sns.barplot(
+        df,
+        x='value',
+        y='bench',
+        orient='h',
+        hue='type',
+        palette='mako'
+    )
+
+    ax.set_xlabel(f"{desired_stat.capitalize()} Overhead %")
+    ax.set_ylabel("Benchmark")
+    ax.legend(loc=1)
+    ax.set_title(f"{desired_stat.capitalize()} Comparison: {instance_name}")
+
+    if plot:
+        plt.subplots_adjust(left=0.3)
+        plt.savefig(os.path.join(RES_DIR, f"bench-compare-{instance_name}-{desired_stat}.pdf"))
 
 def generate_comparison_bar(base_res, before_res, after_res, bench_name, desired_stats, instance_name, ax=None):
     plot = ax is None
@@ -277,7 +321,7 @@ def generate_comparison_bar(base_res, before_res, after_res, bench_name, desired
 
     if plot:
         plt.subplots_adjust(left=0.3)
-        plt.savefig(os.path.join(RES_DIR, f"overhead-{instance_name}-{desired_stats[0]}"))
+        plt.savefig(os.path.join(RES_DIR, f"compare-{instance_name}-{desired_stats[0]}.pdf"))
 
 def generate_heap_sum_bar(heap_res, instance_name, valid_types, ax=None):
     plot = ax is None
@@ -322,7 +366,7 @@ def generate_heap_sum_bar(heap_res, instance_name, valid_types, ax=None):
 
     if plot:
         plt.subplots_adjust(left=0.25)
-        plt.savefig(os.path.join(RES_DIR, f"heap-allocations-{instance_name}"))
+        plt.savefig(os.path.join(RES_DIR, f"heap-sum-bar-{instance_name}.pdf"))
 
 def generate_stack_sum_bar(stack_res, instance_name, valid_types, ax=None):
     plot = ax is None
@@ -372,11 +416,13 @@ def generate_stack_sum_bar(stack_res, instance_name, valid_types, ax=None):
 
     if plot:
         plt.subplots_adjust(left=0.25)
-        plt.savefig(os.path.join(RES_DIR, f"heap-allocations-{instance_name}"))
+        plt.savefig(os.path.join(RES_DIR, f"stack-sum-{instance_name}.pdf"))
 
 def generate_lib_scatter(bench_heap_res, instance_name, valid_types, lib, cumulative, ax=None):
     plot = ax is None
     
+    # print(bench_heap_res)
+
     # Filter out frees
     bench_heap_res = dict(filter(lambda x: x[1]['type'] in valid_types, bench_heap_res.items()))
 
@@ -385,6 +431,7 @@ def generate_lib_scatter(bench_heap_res, instance_name, valid_types, lib, cumula
         'type': list(map(lambda x: x['type'], bench_heap_res.values())),
         'size': list(bench_heap_res.keys())
     }
+
 
     ax = sns.scatterplot(
         stats, x='size', y='count', palette='mako', hue='type', linewidth=0, alpha=0.7, s=10, ax=ax)
@@ -405,8 +452,9 @@ def generate_lib_scatter(bench_heap_res, instance_name, valid_types, lib, cumula
         ax2.set_xlabel("Allocation Size")
     
     if plot:
+        # pass
         # plt.subplots_adjust(left=0.25)
-        plt.savefig(os.path.join(RES_DIR, f"{lib}-allocations-{instance_name.split('-')[1]}.png"))
+        plt.savefig(os.path.join(RES_DIR, f"{lib}-allocations-scatter-{instance_name.split('-')[1]}.pdf"))
 
 def generate_bar(results, unit, desired_stats, instance_name, ax=None):
     overhead = results
@@ -443,14 +491,11 @@ def generate_bar(results, unit, desired_stats, instance_name, ax=None):
     
     if plot:
         plt.subplots_adjust(left=0.25)
-        # plt.savefig(os.path.join(RES_DIR, f"overhead-{instance_name}-{desired_stats[0]}"))
+        plt.savefig(os.path.join(RES_DIR, f"basic-bar-{instance_name}-{desired_stats[0]}.pdf"))
 
-def generate_overhead_bar(base_res, san_res, desired_stats, instance_name, ax=None):
+def generate_overhead_bar(base_res, san_res, desired_stats, instance_name, log=False, ax=None):
     overhead = overhead_as_percent(base_res, san_res)
-
-    plot = False
-    if ax is None:
-        plot = True
+    plot = ax is None
 
     for bench, stats in overhead.items():
         for stat in desired_stats:
@@ -477,13 +522,15 @@ def generate_overhead_bar(base_res, san_res, desired_stats, instance_name, ax=No
         ax = df.plot.barh(rot=0, legend=True)
 
     ax.set_xlabel("Overhead Percentage")
-    ax.set_xscale('log')
+    if log:
+        ax.set_xscale('log')
+
     ax.set_ylabel("Benchmark")
     ax.set_title(f"Overhead: {instance_name.capitalize()}")
     
     if plot:
         plt.subplots_adjust(left=0.25)
-        # plt.savefig(os.path.join(RES_DIR, f"overhead-{instance_name}-{desired_stats[0]}"))
+        plt.savefig(os.path.join(RES_DIR, f"overhead-{instance_name}-{desired_stats[0]}.pdf"))
 
 def generate_flamegraph(result_file, instance_name, desired_stat):
     res_dir = os.path.join(os.getcwd(), 'results', 'flamegraphs')
@@ -505,7 +552,7 @@ def generate_flamegraph(result_file, instance_name, desired_stat):
 
 def generate_perf_graphs(base_res, san_res, instance):
 
-    plt.figure(2)
+    plt.figure(1)
 
     plt.subplot(2, 3, 1)
     generate_overhead_bar(base_res, san_res, ['instructions', 'branches', 'cache-references'], instance, ax=plt.gca())
@@ -530,7 +577,7 @@ def generate_perf_graphs(base_res, san_res, instance):
 
 def generate_heap_scatters(heap_res, tests, valid_stats, instance):
 
-    plt.figure(3)
+    plt.figure(2)
 
     plt.subplot(2, 4, 1)
     generate_lib_scatter(heap_res[tests[0]], f"{instance} - {tests[0]}", valid_stats, "Heap", True, ax=plt.gca())
@@ -558,9 +605,59 @@ def generate_heap_scatters(heap_res, tests, valid_stats, instance):
 
     plt.subplots_adjust(hspace=0.25, wspace=0.5)
 
+def generate_perf_compare_bars(base_res, before_res, after_res, instance):
+
+    plt.figure(3)
+
+    plt.subplot(2, 4, 1)
+    generate_bench_comparison_bar(base_res, before_res, after_res, "branch-misses", instance, ax=plt.gca())
+
+    plt.subplot(2, 4, 2)
+    generate_bench_comparison_bar(base_res, before_res, after_res, "cache-misses", instance, ax=plt.gca())
+
+    plt.subplot(2, 4, 3)
+    generate_bench_comparison_bar(base_res, before_res, after_res, "L1-icache-load-misses", instance, ax=plt.gca())
+
+    plt.subplot(2, 4, 4)
+    generate_bench_comparison_bar(base_res, before_res, after_res, "L1-dcache-load-misses", instance, ax=plt.gca())
+
+    plt.subplot(2, 4, 5)
+    generate_bench_comparison_bar(base_res, before_res, after_res, "iTLB-load-misses", instance, ax=plt.gca())
+
+    plt.subplot(2, 4, 6)
+    generate_bench_comparison_bar(base_res, before_res, after_res, "dTLB-store-misses", instance, ax=plt.gca())
+
+    plt.subplot(2, 4, 7)
+    generate_bench_comparison_bar(base_res, before_res, after_res, "dTLB-load-misses", instance, ax=plt.gca())
+
+    plt.subplot(2, 4, 8)
+    generate_bench_comparison_bar(base_res, before_res, after_res, "faults", instance, ax=plt.gca())
+
+    plt.subplots_adjust(hspace=0.25, wspace=0.5)
+
+def generate_base_compare_bars(base_res, before_res, after_res, instance):
+    plt.figure(4)
+
+    plt.subplot(2, 3, 1)
+    generate_bench_comparison_bar(base_res, before_res, after_res, "runtime", instance, ax=plt.gca())
+
+    plt.subplot(2, 3, 2)
+    generate_bench_comparison_bar(base_res, before_res, after_res, "maxrss", instance, ax=plt.gca())
+
+    plt.subplot(2, 3, 3)
+    generate_bench_comparison_bar(base_res, before_res, after_res, "io_operations", instance, ax=plt.gca())
+
+    plt.subplot(2, 3, 4)
+    generate_bench_comparison_bar(base_res, before_res, after_res, "page_faults", instance, ax=plt.gca())
+
+    plt.subplot(2, 3, 5)
+    generate_bench_comparison_bar(base_res, before_res, after_res, "context_switches", instance, ax=plt.gca())
+
+    plt.subplots_adjust(hspace=0.25, wspace=0.5)
+
 def generate_stack_scatters(heap_res, tests, valid_stats, instance):
 
-    plt.figure(4)
+    plt.figure(5)
 
     plt.subplot(2, 4, 1)
     generate_lib_scatter(heap_res[tests[0]], f"{instance} - {tests[0]}", valid_stats, "Stack", False, ax=plt.gca())
@@ -590,7 +687,7 @@ def generate_stack_scatters(heap_res, tests, valid_stats, instance):
 
 def generate_base_graphs(base_res, san_res, instance):
 
-    plt.figure(5)
+    plt.figure(6)
 
     plt.subplot(2, 3, 1)
     generate_overhead_bar(base_res, san_res, ["runtime"], instance, ax=plt.gca())
@@ -619,12 +716,15 @@ def print_result_table(result, instance, mean=False, geo=False, stat=None):
             return
 
         if geo:
-            gmean = geomean(list(map(lambda x: x[1][stat], result.items())))
+            gmean = geomean(list(map(lambda x: 0 if stat not in x[1].keys() else x[1][stat], result.items())))
             print(f"The geomean of {instance} {stat} is {gmean}")
         
         mean = 0
         for bench, stats in result.items():
-            mean += stats[stat]
+            if stat not in stats.keys():
+                mean += 0
+            else:
+                mean += stats[stat]
 
         mean /= len(result.keys())
         print(f"The mean of {instance} {stat} is: {mean}")
@@ -667,16 +767,48 @@ def sum_stack_allocations(result):
 
 def print_stack_table(results):
     for bench, stats in results.items():
-        print(bench)
+        print(f"BENCHMARK: {bench}")
         total_allocs = sum(stats.values())
         for name, val in stats.items():
             percent = (val / total_allocs) * 100
             print(f"Type: {name} - {percent}%")
 
+
+def print_overhead_compare_table(before_overhead, after_overhead, agg=None):
+    
+    total = {}
+    for bench, stats in before_overhead.items():
+        if bench not in after_overhead.keys():
+            continue
+
+        print(f"BENCHMARK: {bench}")
+        for name, value in stats.items():
+            if name not in after_overhead[bench].keys():
+                after_overhead[bench][name] = 0
+
+            diff = value - after_overhead[bench][name]
+            if value != 0:
+                improve = (diff / value) * 100
+            else:
+                improve = 100 - diff
+
+            if name not in total.keys():
+                total[name] = [improve]
+            else:
+                total[name] += [improve]
+
+            print(f"{name} before: {value} - after: {after_overhead[bench][name]} - improvement: {improve}")
+
+    for stat, values in total.items():
+        if 'mean' in agg:
+            print(f"The average improvement of {stat} is: {sum(values) / len(values)}")
+        # if 'geo' in agg:
+        #     print(f"The geomean improvement of {stat} is: {geomean(values)}")
+
 styles = ['seaborn-v0_8', 'seaborn-v0_8-bright', 'seaborn-v0_8-colorblind', 'seaborn-v0_8-dark', 'seaborn-v0_8-dark-palette', 'seaborn-v0_8-darkgrid', 'seaborn-v0_8-deep', 'seaborn-v0_8-muted', 'seaborn-v0_8-notebook', 'seaborn-v0_8-paper', 'seaborn-v0_8-pastel', 'seaborn-v0_8-poster', 'seaborn-v0_8-talk', 'seaborn-v0_8-ticks', 'seaborn-v0_8-white', 'seaborn-v0_8-whitegrid']
 
 if __name__ == "__main__":
-    stats =      [  "runtime", "maxrss", "io_operations", "context_switches", "page_faults", 
+    stats =      [  "runtime", "maxrss", "page_faults", "context_switches", "io_operations",
                     "status"]
 
     aggregates = [  "mean", "median", "stdev", "stdev_percent", 
@@ -696,7 +828,7 @@ if __name__ == "__main__":
         "pointer", "struct", "array", "Fixed width SIMD vector", "Scalable SIMD vector"]
     
     test_name = "400.perlbench"
-    san_name = "ASan"
+    san_name = "UBsan"
 
     # print(mpl.rcParams)
 
@@ -706,23 +838,24 @@ if __name__ == "__main__":
 
     clang_baseline_res = collect_spec_results("results/run.new-clang-baseline", stats[:5], aggregates[15])
 
-    san_baseline_res = collect_spec_results("results/run.old-asan-baseline", stats[:5], aggregates[15])
+    # san_baseline_res = collect_spec_results("results/run.old-asan-baseline", stats[:5], aggregates[15])
     # san_baseline_res = collect_spec_results("results/run.msan-baseline", stats[:5], aggregates[15])
     # san_baseline_res = collect_spec_results("results/run.cfi-baseline", stats[:5], aggregates[15])
-    # san_baseline_res = collect_spec_results("results/run.ubsan-baseline", stats[:5], aggregates[15])
+    san_baseline_res = collect_spec_results("results/run.ubsan-baseline", stats[:5], aggregates[15])
 
     # generate_overhead_bar(clang_baseline_res, san_baseline_res, ['runtime'], san_name)
-    # generate_bar(clang_baseline_res, "stdev", ['runtime'], san_name)
-    #print_result_table(clang_baseline_res, "clang")
+    # generate_bar(clang_baseline_res, "stdev", ['maxrss'], san_name)
+    # print_result_table(clang_baseline_res, "clang")
     
 
-    print_result_table(san_baseline_res, san_name)
-    print_result_table(overhead_as_percent(clang_baseline_res, san_baseline_res), san_name)
-     
-    # print_result_table(overhead_as_percent(clang_baseline_res, san_baseline_res), san_name, True, True, 'runtime')
-    # print_result_table(overhead_as_percent(clang_baseline_res, san_baseline_res), san_name, True, True, 'maxrss')
+    # print_result_table(san_baseline_res, san_name)
+    # print_result_table(overhead_as_percent(clang_baseline_res, san_baseline_res), san_name)
+    
+    # for stat in stats[:5]:
+    #     print_result_table(overhead_as_percent(clang_baseline_res, san_baseline_res), san_name, True, True, stat)
 
-    generate_base_graphs(clang_baseline_res, san_baseline_res, san_name)
+
+    #generate_base_graphs(clang_baseline_res, san_baseline_res, san_name)
 
     #
     # PERF RESULTS
@@ -733,19 +866,22 @@ if __name__ == "__main__":
     valid_benches = list(dict(filter(lambda x: '-' not in x[1].values(), san_baseline_res.items())).keys())
     # san_perf_res = collect_perf_results("results/perftrack.msan/perftrack-msan", perf_stats, valid_benches)
     # san_perf_res = collect_perf_results("results/perftrack.cfi/perftrack-cfi-vis-hidden", perf_stats, valid_benches)
-    # san_perf_res = collect_perf_results("results/perftrack.ubsan/perftrack-ubsan-default", perf_stats, valid_benches)
-    san_perf_res = collect_perf_results("results/perftrack.asan/perftrack-asan", perf_stats, valid_benches)
+    san_perf_res = collect_perf_results("results/perftrack.ubsan/perftrack-ubsan-default", perf_stats, valid_benches)
+    # san_perf_res = collect_perf_results("results/perftrack.asan/perftrack-asan", perf_stats, valid_benches)
 
     # generate_bench_bar(clang_perf_res,  san_perf_res, test_name, ['faults', 'minor-faults', 'major-faults'], f"{san_name} {test_name.split('.')[1]}")
-    
-    # generate_overhead_bar(clang_perf_res, san_perf_res, ['cache-misses', 'branch-misses'], 'asan')
+     
+    # generate_overhead_bar(clang_perf_res, san_perf_res, ['instructions', 'iTLB-loads', 'dTLB-load-misses', 'iTLB-load-misses'], san_name, log=True)
     
     # generate_overhead_bar(clang_perf_res, san_perf_res, ['dTLB-load-misses', 'dTLB-store-misses', 'iTLB-load-misses'], 'asan')
     
-    print_result_table(san_perf_res, san_name)
-    print_result_table(overhead_as_percent(clang_perf_res, san_perf_res), san_name)
+    # print_result_table(san_perf_res, san_name)
+    # print_result_table(overhead_as_percent(clang_perf_res, san_perf_res), san_name)
     
-    generate_perf_graphs(clang_perf_res, san_perf_res, san_name)
+    # for stat in perf_stats:
+    #     print_result_table(overhead_as_percent(clang_perf_res, san_perf_res), san_name, True, True, stat)
+
+    # generate_perf_graphs(clang_perf_res, san_perf_res, san_name)
     
     #
     # HEAP RESULTS
@@ -753,12 +889,12 @@ if __name__ == "__main__":
 
     heap_clang_res = collect_malloc_results("results/heaptrack.clang-lto/libmalloctrack-clang-lto", list(clang_baseline_res.keys()))
 
-    generate_heap_sum_bar(heap_clang_res, san_name, ['Malloc', 'Calloc', 'Realloc', 'Free'])
-    
-    # generate_lib_scatter(heap_clang_res[test_name], f"{san_name} - {test_name}", "Heap", True, ['Malloc', 'Calloc', 'Realloc'])
+    # generate_heap_sum_bar(heap_clang_res, san_name, ['Malloc', 'Calloc', 'Realloc'])
+    test_name = '482.sphinx3'
+    # generate_lib_scatter(heap_clang_res[test_name], f"{san_name} - {test_name}", ['Malloc', 'Calloc', 'Realloc'], "Heap", True)
     
     # generate_heap_scatters(heap_clang_res, ['400.perlbench', '471.omnetpp', '453.povray', '447.dealII', '483.xalancbmk', '462.libquantum'], ['Malloc', 'Calloc', 'Realloc', 'Free'], "heap track")
-    generate_heap_scatters(heap_clang_res, ['471.omnetpp', '447.dealII', '456.hmmer', '462.libquantum', '470.lbm', '453.povray', '483.xalancbmk', '400.perlbench'], ['Malloc', 'Calloc', 'Realloc', 'Free'], "heap track")
+    # generate_heap_scatters(heap_clang_res, ['471.omnetpp', '482.sphinx3', '456.hmmer', '462.libquantum', '403.gcc', '453.povray', '483.xalancbmk', '400.perlbench'], ['Malloc', 'Calloc', 'Realloc', 'Free'], "heap track")
     
     # gernerate_heap_bar(heap_clang_res, ['400.perlbench', '462.libquantum'], ['Malloc', 'Calloc'], 'perlbench - libquantum')
     
@@ -771,7 +907,7 @@ if __name__ == "__main__":
 
     # generate_stack_scatters(stack_clang_res, ['400.perlbench', '462.libquantum', '471.omnetpp', '447.dealII', '483.xalancbmk', '482.sphinx3'], stack_types, "stack track")
     
-    generate_stack_sum_bar(stack_clang_res, "Stack Track", stack_types)
+    # generate_stack_sum_bar(stack_clang_res, san_name, stack_types)
     
     # stack_percents = sum_stack_allocations(stack_clang_res)
     # print(stack_clang_res)
@@ -789,15 +925,33 @@ if __name__ == "__main__":
     #
 
     ### ASan no quarantine (only has perlbench, compare with libquantum as well?)
-    no_quar_base = collect_spec_results("results/run.asan_no_quarantine", stats[:5], aggregates[15])
-    no_quar_perf = collect_perf_results("results/perftrack.asan_no_quarantine/perftrack-asan", perf_stats, list(no_quar_base.keys()))
+    no_quar_base = collect_spec_results("results/run.asan-noq", stats[:5], aggregates[15])
+    no_quar_perf = collect_perf_results("results/perftrack.asan-noq/perftrack-asan-noq", perf_stats, list(no_quar_base.keys()))
+
+    # print_overhead_compare_table(overhead_as_percent(clang_baseline_res, san_baseline_res), overhead_as_percent(clang_baseline_res, no_quar_base), ['mean', 'geo'])
+    # print_overhead_compare_table(overhead_as_percent(clang_perf_res, san_perf_res), overhead_as_percent(clang_perf_res, no_quar_perf), ['mean', 'geo'])
+    
+    # generate_bench_comparison_bar(clang_baseline_res, san_baseline_res, no_quar_base, "runtime", 'Asan - no quarantine')
+    # generate_bench_comparison_bar(clang_baseline_res, san_baseline_res, no_quar_base, "maxrss", "Asan - no quarantine")
+
+    # generate_base_compare_bars(clang_baseline_res, san_baseline_res, no_quar_base, "ASan quarantine disabled")
+    # generate_perf_compare_bars(clang_perf_res, san_perf_res, no_quar_perf, "ASan quarantine disabled")
 
     # generate_comparison_bar(clang_baseline_res, san_baseline_res, no_quar_base, '400.perlbench', stats[:4], "perlbench - ASan quarantine disabled")
     # generate_comparison_bar(clang_perf_res, san_perf_res, no_quar_perf, '400.perlbench', perf_stats[:-3], "perlbench - ASan quarantine disabled")
     
     ### MSan no complex propagations (only has gcc, compare with sphinx3 as well?)
-    no_complex_base = collect_spec_results("results/run.msan_no_complex", stats[:5], aggregates[15])
-    no_complex_perf = collect_perf_results("results/perftrack.msan_no_complex/perftrack-msan", perf_stats, list(no_complex_base.keys()))
+    no_complex_base = collect_spec_results("results/run.msan-noc", stats[:5], aggregates[15])
+    no_complex_perf = collect_perf_results("results/perftrack.msan-noc/perftrack-msan-noc", perf_stats, list(no_complex_base.keys()))
+
+    # print_overhead_compare_table(overhead_as_percent(clang_baseline_res, san_baseline_res), overhead_as_percent(clang_baseline_res, no_complex_base), ['mean', 'geo'])
+    print_overhead_compare_table(overhead_as_percent(clang_perf_res, san_perf_res), overhead_as_percent(clang_perf_res, no_complex_perf), ['mean', 'geo'])
+    
+    # generate_bench_comparison_bar(clang_baseline_res, san_baseline_res, no_complex_base, "runtime", 'MSan - less shadow propagation')
+    # generate_bench_comparison_bar(clang_baseline_res, san_baseline_res, no_complex_base, "maxrss", 'MSan - less shadow propagation')
+
+    # generate_base_compare_bars(clang_baseline_res, san_baseline_res, no_complex_base, "MSan no complex propagation")
+    # generate_perf_compare_bars(clang_perf_res, san_perf_res, no_complex_perf, "MSan no complex propagation")
 
     # generate_comparison_bar(clang_baseline_res, san_baseline_res, no_complex_base, '403.gcc', stats[:4], "gcc - MSan no complex propagation")
     # generate_comparison_bar(clang_perf_res, san_perf_res, no_complex_perf, '403.gcc', perf_stats[:-3], "gcc - MSan no complex propagation")
@@ -806,11 +960,29 @@ if __name__ == "__main__":
     no_vdot_base = collect_spec_results("results/run.ubsan_no_vdot_2", stats[:5], aggregates[15])
     no_vdot_perf = collect_perf_results("results/perftrack.ubsan_no_vdot_2/perftrack-ubsan-default", perf_stats, list(no_vdot_base.keys()))
 
-    # generate_comparison_bar(clang_baseline_res, san_baseline_res, no_vdot_base, '453.povray', stats[:5], "povray - UBSan no_instrument VDot")
+    no_check_base = collect_spec_results("results/run.ubsan-no-checks", stats[:5], aggregates[15])
+    no_check_perf = collect_perf_results("results/perftrack.ubsan-no-checks/perftrack-ubsan-no-checks", perf_stats, list(no_check_base.keys()))
+    
+    # generate_comparison_bar(clang_baseline_res, san_baseline_res, no_vdot_base, '453.povray', stats[:4], "povray - UBSan no_instrument VDot")
     # generate_comparison_bar(clang_perf_res, san_perf_res, no_vdot_perf, '453.povray', perf_stats, "povray - UBSan no_instrument VDot")
+    
+    # print_overhead_compare_table(overhead_as_percent(clang_baseline_res, san_baseline_res), overhead_as_percent(clang_baseline_res, no_vdot_base), ['mean', 'geo'])
+    # print_overhead_compare_table(overhead_as_percent(clang_perf_res, san_perf_res), overhead_as_percent(clang_perf_res, no_vdot_perf), ['mean', 'geo'])
+
+    # generate_comparison_bar(clang_baseline_res, san_baseline_res, no_check_base, '456.hmmer', stats[:3], "hmmer - UBSan no pointer checks")
+    # generate_comparison_bar(clang_perf_res, san_perf_res, no_check_perf, '456.hmmer', perf_stats, "hmmer - UBSan no pointer checks")
+    
+    # print_overhead_compare_table(overhead_as_percent(clang_baseline_res, san_baseline_res), overhead_as_percent(clang_baseline_res, no_check_base), ['mean', 'geo'])
+    print_overhead_compare_table(overhead_as_percent(clang_perf_res, san_perf_res), overhead_as_percent(clang_perf_res, no_check_perf), ['mean', 'geo'])
+
+    # ubsan_stack = collect_stack_results("results/stacktrack.ubsan/libstacktrack-ubsan-default", ['453.povray'])
+    # ubsan_heap = collect_heap_results("results/heaptrack.ubsan/libmalloctrack-ubsan-default", ['453.povray'])
+
+    # generate_heap_sum_bar()
+    # generate_stack_sum_bar()
 
     ### UBSan disable subset (disable most common instrument ??? )
-    # No valid run for this yet, do we bother?
+    # No valid run for this yet, do we bother? No time it seems
     
     ### Heap Allocations                            X
     # generate_heap_sum_bar(heap_clang_res, san_name, ['Malloc', 'Calloc', 'Realloc', 'Free'])

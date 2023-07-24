@@ -32,16 +32,30 @@ llvm = LLVM(version='16.0.1', compiler_rt=True, patches=[])
 # What are the most shadow props for MSan?                                              X
 # Disable some shadow props for MSan                                                    X
 # Disable quarantine for ASan                                                           X
-# Disable a subset of UBSan tests
+# Disable a subset of UBSan tests               
 # Figure out how to un inline VDot
 # Test malloc allocations for clang (use with asan analysis)
 
-
-
-
-# FINAL DRAFT REVIEW
-
 # FINAL DRAFT
+# UBSan intro                                               X
+# UBSan stack analysis                                      X
+# UBSan perf analysis                                       X
+# UBSan experiment                                          X
+# UBSan conclusion                                          X
+
+# Fix abstract                                              X
+# Fix discussion                                            X
+# Fix conclusion                                            X
+# Add headers to eval                                       X
+# Feedback raphael
+
+# Fix graphs in eval (make pdf, insert needed)              X
+# Add tables to eval (4)                                    X
+# Add remaining citations
+
+# Experiment Diagram
+# Make assembly into text
+# Intro instrument example (not do this?)
 
 class HelloWorld(inf.Target):
     name = 'hello-world'
@@ -276,6 +290,7 @@ if __name__ == "__main__":
     setup.add_instance(PerfTrack(inf.instances.ASan(llvm)))
     setup.add_instance(PerfTrack(inf.instances.MSan(llvm)))
     setup.add_instance(PerfTrack(inf.instances.UbSan(llvm)))
+    setup.add_instance(PerfTrack(inf.instances.UbSan(llvm, no_checks=['alignment', 'pointer-overflow'])))
     setup.add_instance(PerfTrack(inf.instances.SafeSan(llvm)))
     setup.add_instance(PerfTrack(inf.instances.CFISan(llvm)))
 

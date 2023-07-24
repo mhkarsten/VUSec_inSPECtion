@@ -51,8 +51,11 @@ class UbSan(Clang):
     def name(self):
         name = "ubsan"
         
-        if self.default_checks:
-            name += "-default"
+        if self.no_checks is not None:
+            name += '-no-checks'
+        elif self.default_checks:
+            name += "-default-2"
+    
         if not self.default_checks and self.san_checks:
             name += "-" + "-".join(self.san_checks)
 
